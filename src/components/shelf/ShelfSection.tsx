@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { MAX_SKU } from '../../types'
+import { MAX_SKU, type Flavor } from '../../types'
 import { plural } from '../../domain/format'
 import { useShelf } from '../../store/shelfStore'
 import { BrandChips } from './BrandChips'
@@ -8,6 +8,7 @@ import { ShelfVisual } from './ShelfVisual'
 import { StopList } from './StopList'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
+import { Modal } from '../ui/Modal'
 import { TextField } from '../ui/TextField'
 
 export function ShelfSection() {
@@ -18,6 +19,7 @@ export function ShelfSection() {
   const [newName, setNewName] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [pendingRemove, setPendingRemove] = useState<Flavor | null>(null)
 
   const filtered = shelf.flavors.filter((flavor) => {
     if (brand && flavor.brand !== brand) return false
@@ -85,7 +87,10 @@ export function ShelfSection() {
         <ShelfVisual
           flavors={filtered.filter((flavor) => flavor.status === 'shelf')}
           onMove={shelf.move}
-          onRemove={shelf.remove}
+          onRemove={(id) => {
+            const flavor = shelf.flavors.find((item) => item.id === id)
+            if (flavor) setPendingRemove(flavor)
+          }}
           onDrop={(id) => shelf.move(id, 'shelf')}
         />
         <StopList
@@ -94,10 +99,16 @@ export function ShelfSection() {
           onDrop={(id) => shelf.move(id, 'stop')}
         />
         <FlavorList
-          flavors={filtered.filter((flavor) => flavor.status === 'request')}
+          flavors={shelf.requestLines.filter((flavor) => !brand || flavor.brand === brand).filter((flavor) => {
+            if (!query.trim()) return true
+            return `${flavor.brand} ${flavor.name}`.toLowerCase().includes(query.trim().toLowerCase())
+          })}
           copied={copied}
-          onDrop={(id) => shelf.move(id, 'request')}
-          onExport={() => {
+          onDrop={(id) => shelf.move(id, 'stop')}
+          onExcel={() => {
+            void shelf.exportExcel()
+          }}
+          onCopy={() => {
             void shelf.copyText().then((ok) => {
               if (!ok) return
               setCopied(true)
@@ -106,6 +117,31 @@ export function ShelfSection() {
           }}
         />
       </div>
+      {pendingRemove ? (
+        <Modal
+          title="Удалить вкус?"
+          narrow
+          onClose={() => setPendingRemove(null)}
+          footer={
+            <>
+              <Button onClick={() => setPendingRemove(null)}>Оставить</Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  shelf.remove(pendingRemove.id)
+                  setPendingRemove(null)
+                }}
+              >
+                Удалить
+              </Button>
+            </>
+          }
+        >
+          <p>
+            {pendingRemove.brand}, {pendingRemove.name}. Вкус исчезнет с полки.
+          </p>
+        </Modal>
+      ) : null}
       {shelf.undo ? (
         <div className="undo">
           <span>Вкус перенесён</span>

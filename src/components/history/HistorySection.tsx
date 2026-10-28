@@ -21,6 +21,7 @@ export function HistorySection() {
         ended={history.ended}
         smoking={history.smoking}
         live={app.data.hookahs}
+        shifts={history.shifts}
         now={app.now}
         onExport={() => {
           void history.exportAnalytics()

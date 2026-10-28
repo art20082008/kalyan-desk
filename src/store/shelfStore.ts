@@ -1,7 +1,7 @@
 import type { FlavorStatus } from '../types'
 import { requestWorkbook } from '../domain/excel'
 import { formatStamp } from '../domain/format'
-import { addFlavor, forwardFlavor, moveFlavor, recordRequest, removeFlavor, undoMove } from '../domain/shelf'
+import { addFlavor, forwardFlavor, moveFlavor, orderFlavors, recordRequest, removeFlavor, undoMove } from '../domain/shelf'
 import { orderText } from '../domain/text'
 import { starterFlavors } from '../domain/starter'
 import { storage } from '../data/localDb'
@@ -9,7 +9,7 @@ import { useApp } from './context'
 
 export function useShelf() {
   const app = useApp()
-  const requestLines = app.data.flavors.filter((flavor) => flavor.status === 'request')
+  const requestLines = orderFlavors(app.data.flavors)
 
   function rememberRequest() {
     const now = Date.now()

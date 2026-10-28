@@ -193,20 +193,13 @@ function stopAlertLoop(): void {
 }
 
 ipcMain.on('alert:loop', (_event, active: boolean) => {
-  if (active) {
-    if (alertLoop != null) return
-    const ding = (): void => {
-      try {
-        shell.beep()
-      } catch {
-        /* на этой системе системный сигнал недоступен */
-      }
-    }
-    ding()
-    alertLoop = setInterval(ding, 1400)
-    return
-  }
   stopAlertLoop()
+  if (!active) return
+  try {
+    shell.beep()
+  } catch {
+    /* на этой системе системный сигнал недоступен */
+  }
 })
 
 ipcMain.handle('notify', (_event, payload: { title: string; body: string }) => {

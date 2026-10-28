@@ -37,10 +37,10 @@ export function TimerCard({
 
   return (
     <article className={className}>
-      {alerting && focused ? (
+      {alerting ? (
         <div className="hotkey-inline">
-          <span className="hotkey-key">Пробел</span>
-          <span>гасит этот стол</span>
+          <span className="check-title">Проверить кальян</span>
+          {focused ? <span>Пробел запускает следующий таймер</span> : null}
         </div>
       ) : null}
       <header className="timer-head">
@@ -49,7 +49,7 @@ export function TimerCard({
       </header>
       <div className="timer-body">
         <div className="timer-main">
-          <span className="timer-kind">{hookah.kind}</span>
+          {hookah.flavorName ? <span className="timer-flavor">{hookah.flavorName}</span> : null}
           <p className={`time ${face.clockTone === 'primary' ? '' : face.clockTone}`.trim()}>{face.clock}</p>
         </div>
         <div className="timer-progress">

@@ -1,6 +1,6 @@
 import type { BrandRank, FlavorRank, SmokingAverage } from '../../domain/analytics'
 import { plural } from '../../domain/format'
-import type { Flavor, Hookah } from '../../types'
+import type { Flavor, Hookah, ShiftSummary } from '../../types'
 import { timerSnapshot } from '../../domain/timers'
 import { Button } from '../ui/Button'
 import { Icon } from '../ui/Icon'
@@ -11,6 +11,7 @@ export function Analytics({
   ended,
   smoking,
   live,
+  shifts,
   now,
   onExport,
 }: {
@@ -19,6 +20,7 @@ export function Analytics({
   ended: Flavor[]
   smoking: SmokingAverage
   live: Hookah[]
+  shifts: ShiftSummary[]
   now: number
   onExport: () => void
 }) {
@@ -86,6 +88,25 @@ export function Analytics({
             <strong>{row.count}</strong>
           </div>
         ))}
+      </div>
+      <div className="rank-block">
+        <h4>Смены</h4>
+        {shifts.length === 0 ? <p className="muted">Смена появится после «Завершить смену».</p> : null}
+        {shifts.map((shift) => {
+          const [year, month, day] = shift.dateKey.split('-')
+          const date = day && month && year ? `${day}.${month}.${year}` : shift.dateKey
+          return (
+            <div className="rank-row" key={shift.id}>
+              <div>
+                <strong>{date}</strong>
+                <small>
+                  {shift.hookahCount} {plural(shift.hookahCount, 'кальян', 'кальяна', 'кальянов')}
+                  {shift.averageMin == null ? '' : ` · среднее ${shift.averageMin} мин`}
+                </small>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </section>
   )

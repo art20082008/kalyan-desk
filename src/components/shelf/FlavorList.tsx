@@ -5,12 +5,14 @@ export function FlavorList({
   flavors,
   copied,
   onDrop,
-  onExport,
+  onExcel,
+  onCopy,
 }: {
   flavors: Flavor[]
   copied: boolean
   onDrop: (id: string) => void
-  onExport: () => void
+  onExcel: () => void
+  onCopy: () => void
 }) {
   const brands = [...new Set(flavors.map((flavor) => flavor.brand))].sort((a, b) => a.localeCompare(b, 'ru'))
   return (
@@ -27,32 +29,27 @@ export function FlavorList({
         <h3>В заявке</h3>
         <span>{flavors.length}</span>
       </header>
-      <div>
+      <div className="order-text">
+        {flavors.length === 0 ? <p className="muted">Закончившиеся вкусы появятся здесь текстом.</p> : null}
         {brands.map((brand) => (
           <div key={brand}>
-            <p className="muted">{brand}</p>
+            <p>{brand}</p>
             {flavors
               .filter((flavor) => flavor.brand === brand)
               .map((flavor) => (
-                <div
-                  key={flavor.id}
-                  className="request-line"
-                  draggable
-                  data-noswipe
-                  onDragStart={(event) => {
-                    event.dataTransfer.setData('text/plain', flavor.id)
-                    event.dataTransfer.effectAllowed = 'move'
-                  }}
-                >
-                  <strong>{flavor.name}</strong>
-                </div>
+                <p key={flavor.id} className="request-line">
+                  — {flavor.name}
+                </p>
               ))}
           </div>
         ))}
       </div>
       <div className="request-actions">
-        <Button variant="small" onClick={onExport} disabled={flavors.length === 0}>
-          {copied ? 'Скопировано' : 'Выгрузить'}
+        <Button variant="small" onClick={onExcel} disabled={flavors.length === 0}>
+          Выгрузить в Excel
+        </Button>
+        <Button variant="small" onClick={onCopy} disabled={flavors.length === 0}>
+          {copied ? 'Скопировано' : 'Скопировать текст'}
         </Button>
       </div>
     </section>

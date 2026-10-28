@@ -24,7 +24,7 @@ export interface HotkeyInput {
 
 export type HotkeyAction = 'ack' | 'prev' | 'next'
 
-/** Пробел гасит самый ранний алерт, стрелки переключают разделы. В поле ввода оба молчат. */
+/** Пробел запускает следующий таймер, стрелки переключают разделы. В поле ввода оба молчат. */
 export function hotkeyAction(event: HotkeyInput): HotkeyAction | null {
   if (isTextEntry(event.target)) return null
   if (event.ctrlKey || event.metaKey || event.altKey) return null
@@ -35,4 +35,22 @@ export function hotkeyAction(event: HotkeyInput): HotkeyAction | null {
     return 'ack'
   }
   return null
+}
+
+export interface SwipeInput {
+  pointerType: string
+  blocked: boolean
+  dx: number
+  dy: number
+  elapsedMs: number
+  hasSelection: boolean
+}
+
+/** Смена раздела только коротким касанием. Выделение текста мышкой раздел не меняет. */
+export function shouldChangeSection(input: SwipeInput): boolean {
+  if (input.blocked || input.hasSelection) return false
+  if (input.pointerType !== 'touch') return false
+  if (input.elapsedMs > 450) return false
+  if (Math.abs(input.dx) < 80 || Math.abs(input.dx) < Math.abs(input.dy) * 1.4) return false
+  return true
 }

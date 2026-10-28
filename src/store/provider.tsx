@@ -3,8 +3,7 @@ import type { AppData, UndoMove } from '../types'
 import { storage } from '../data/localDb'
 import { applyTimerTick } from '../domain/timers'
 import { markReminded, REMINDER_TEXT, reminderDue } from '../domain/reminders'
-import { setAlertLoop } from '../feedback/alertSound'
-import { openAlerts } from '../domain/timers'
+import { playAlertOnce, stopAlertSound } from '../feedback/alertSound'
 import { AppStateContext } from './context'
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
@@ -87,8 +86,9 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       let next = applyTimerTick(current, tickNow)
       if (next.fired.length > 0) {
         const tables = [...new Set(next.fired.map((item) => item.table))].join(', ')
-        storage.notify('Малевич', `Алерт на ${tables}`)
-        setToast(`Алерт: ${tables}`)
+        storage.notify('Малевич', `Проверить кальян: ${tables}`)
+        setToast('Проверить кальян')
+        if (current.settings.timerSound !== false) playAlertOnce()
       }
       let nextData = next.data
       if (!reminderRef.current && reminderDue(nextData.settings, nextData.flavors, tickNow)) {
@@ -98,12 +98,11 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         storage.notify('Малевич', REMINDER_TEXT)
       }
       if (nextData !== current) setData(nextData)
-      setAlertLoop(nextData.hookahs.some((hookah) => openAlerts(hookah, tickNow).length > 0))
       setNow(tickNow)
     }, 1000)
     return () => {
       window.clearInterval(id)
-      setAlertLoop(false)
+      stopAlertSound()
     }
   }, [status])
 

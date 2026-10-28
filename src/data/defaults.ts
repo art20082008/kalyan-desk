@@ -1,4 +1,4 @@
-import type { AppData, HallTable, Hookah, HookahAlert, Settings } from '../types'
+import type { AppData, HallTable, Hookah, HookahAlert, Settings, ShiftSummary } from '../types'
 import { DEFAULT_ALERT_INTERVALS, normalizeIntervals } from '../domain/alertPresets'
 import { MAX_SKU } from '../types'
 
@@ -20,6 +20,7 @@ function defaultSettings(now: number): Settings {
     weekDay: 1,
     weekTime: '10:00',
     alertIntervals: [...DEFAULT_ALERT_INTERVALS],
+    timerSound: true,
   }
 }
 
@@ -33,6 +34,7 @@ export function createDefaultData(now = Date.now()): AppData {
     plan: null,
     tables: defaultTables(),
     settings: defaultSettings(now),
+    shifts: [],
   }
 }
 
@@ -47,8 +49,10 @@ function migrateAlert(alert: HookahAlert): HookahAlert {
 }
 
 function migrateHookah(hookah: Hookah): Hookah {
+  const flavorName = typeof hookah.flavorName === 'string' ? hookah.flavorName : ''
   return {
     ...hookah,
+    flavorName,
     alerts: Array.isArray(hookah.alerts) ? hookah.alerts.map((alert) => migrateAlert(alert)) : [],
   }
 }
@@ -80,6 +84,7 @@ function migrateSettings(value: Partial<Settings> | undefined, now: number): Set
     weekTime: typeof raw.weekTime === 'string' && raw.weekTime.trim() ? raw.weekTime : base.weekTime,
     alertIntervals: normalizeIntervals(raw.alertIntervals),
     shiftEnd: raw.shiftEnd || base.shiftEnd,
+    timerSound: raw.timerSound !== false,
   }
 }
 
@@ -106,5 +111,11 @@ export function parseAppData(raw: unknown, now = Date.now()): AppData {
     plan: value.plan ?? null,
     tables: migrateTables(value, hookahs),
     settings: migrateSettings(value.settings, now),
+    shifts: migrateShifts(value.shifts),
   }
+}
+
+function migrateShifts(value: ShiftSummary[] | undefined): ShiftSummary[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((shift) => shift && shift.id && shift.dateKey)
 }

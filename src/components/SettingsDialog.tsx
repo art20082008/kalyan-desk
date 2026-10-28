@@ -41,6 +41,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   const [weekTime, setWeekTime] = useState(settings.weekTime)
   const [shiftEnd, setShiftEnd] = useState(settings.shiftEnd)
   const [steps, setSteps] = useState<Step[]>(() => toSteps(settings.alertIntervals))
+  const [timerSound, setTimerSound] = useState(settings.timerSound !== false)
 
   useEffect(() => {
     const dirty =
@@ -49,10 +50,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       weekDay !== settings.weekDay ||
       weekTime !== settings.weekTime ||
       shiftEnd !== settings.shiftEnd ||
-      steps.map((step) => step.minutes).join(',') !== settings.alertIntervals.join(',')
+      steps.map((step) => step.minutes).join(',') !== settings.alertIntervals.join(',') ||
+      timerSound !== (settings.timerSound !== false)
     setDirty(dirty)
     return () => setDirty(false)
-  }, [name, reminder, settings, setDirty, shiftEnd, steps, weekDay, weekTime])
+  }, [name, reminder, settings, setDirty, shiftEnd, steps, timerSound, weekDay, weekTime])
 
   function saveIntervals(next: Step[]) {
     const alertIntervals = next.map((step) => step.minutes)
@@ -88,6 +90,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
         weekTime: weekTime || '10:00',
         shiftEnd: shiftEnd || '23:00',
         alertIntervals,
+        timerSound,
       },
     }))
     app.showToast('Настройки сохранены')
@@ -182,18 +185,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             ))}
           </div>
           <p className="hint">
-            Алерты срабатывают по очереди. По умолчанию интервал 10 мин — можно выбрать другой или ввести своё значение.
+            Таймеры срабатывают по очереди. По умолчанию интервал 10 мин — можно выбрать другой или ввести своё значение.
             «Сохранить по умолчанию» запомнит количество и интервалы для нового кальяна.
           </p>
         </div>
-        <div className="note">
-          <strong>Где хранятся данные</strong>
-          <p>
-            {app.runtime === 'electron'
-              ? 'Данные лежат в JSON на этом компьютере. Копия пишется каждые 15 минут и при закрытии.'
-              : 'Сейчас открыт просмотр в браузере: данные хранятся в localStorage этого окна. В приложении для Windows они сохраняются в файл.'}
-          </p>
-        </div>
+        <label className="check">
+          <input type="checkbox" checked={timerSound} onChange={(event) => setTimerSound(event.target.checked)} />
+          Звук таймера
+        </label>
+        <p className="hint">Один сигнал, когда таймер срабатывает. Постоянный звук не используется.</p>
         <div className="row wrap">
           <Button
             onClick={() => {

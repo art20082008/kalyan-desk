@@ -1,7 +1,11 @@
 /**
- * Системный сигнал Windows играет процесс Electron через shell.beep().
- * В браузерном просмотре моста нет, поэтому цикл просто молчит.
+ * Один системный сигнал Windows через shell.beep().
+ * В браузерном просмотре моста нет, поэтому вызов молчит.
  */
-export function setAlertLoop(active: boolean): void {
-  window.malewich?.alertLoop(active)
+export function playAlertOnce(): void {
+  window.malewich?.alertLoop(true)
+}
+
+export function stopAlertSound(): void {
+  window.malewich?.alertLoop(false)
 }

@@ -1,21 +1,27 @@
 import { useEffect, useState } from 'react'
-import { HOOKAH_KINDS, type Hookah } from '../../types'
+import type { HallTable, Hookah } from '../../types'
 import type { HookahDraft } from '../../domain/timers'
 import { timerSnapshot } from '../../domain/timers'
+import { sortedTables, tableOption } from '../../domain/tables'
 import { useApp } from '../../store/context'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { AlertSettings } from './AlertSettings'
 
-function toDraft(hookah: Hookah | null, table: string | null, defaults: number[], now: number): HookahDraft {
+function toDraft(hookah: Hookah | null, table: string | null, defaults: number[], tables: HallTable[], now: number): HookahDraft {
+  const options = sortedTables(tables)
+  const fallback = options[0]?.label ?? ''
   if (!hookah) {
+    const chosen = table && options.some((item) => item.label === table) ? table : fallback
     return {
-      table: table || 'Стол 1',
-      kind: 'Чаша',
+      table: chosen,
+      flavorName: '',
+      kind: '',
       durationMin: 60,
-      warmupMin: 5,
+      warmupMin: 0,
       elapsedSmokingMin: 0,
       alertMinutes: defaults.length > 0 ? defaults : [10, 10, 10],
+      alertSeconds: (defaults.length > 0 ? defaults : [10, 10, 10]).map(() => 0),
       x: null,
       y: null,
       running: true,
@@ -23,12 +29,14 @@ function toDraft(hookah: Hookah | null, table: string | null, defaults: number[]
   }
   const snap = timerSnapshot(hookah, now)
   return {
-    table: hookah.table,
+    table: options.some((item) => item.label === hookah.table) ? hookah.table : hookah.table || fallback,
+    flavorName: hookah.flavorName,
     kind: hookah.kind,
     durationMin: hookah.durationMin,
-    warmupMin: hookah.warmupMin,
+    warmupMin: 0,
     elapsedSmokingMin: Math.round(snap.smokingMs / 60_000),
     alertMinutes: hookah.alerts.map((alert) => alert.atMin),
+    alertSeconds: hookah.alerts.map((alert) => alert.atSec ?? 0),
     x: hookah.x,
     y: hookah.y,
     running: hookah.finishedAt == null && hookah.running,
@@ -38,51 +46,58 @@ function toDraft(hookah: Hookah | null, table: string | null, defaults: number[]
 export function HookahEditor({
   hookah,
   table,
+  tables,
   defaults,
   onClose,
   onSave,
 }: {
   hookah: Hookah | null
   table: string | null
+  tables: HallTable[]
   defaults: number[]
   onClose: () => void
   onSave: (draft: HookahDraft) => void
 }) {
   const { setDirty } = useApp()
-  const [initial] = useState(() => toDraft(hookah, table, defaults, Date.now()))
+  const options = sortedTables(tables)
+  const [initial] = useState(() => toDraft(hookah, table, defaults, tables, Date.now()))
   const [tableName, setTableName] = useState(initial.table)
-  const [kind, setKind] = useState(initial.kind)
+  const [flavorName, setFlavorName] = useState(initial.flavorName ?? '')
   const [durationMin, setDurationMin] = useState(String(initial.durationMin))
-  const [warmupMin, setWarmupMin] = useState(String(initial.warmupMin))
-  const [elapsed, setElapsed] = useState(String(initial.elapsedSmokingMin))
   const [alerts, setAlerts] = useState(initial.alertMinutes.map(String))
+  const [seconds, setSeconds] = useState((initial.alertSeconds ?? []).map(String))
   const [running, setRunning] = useState(initial.running)
+  const knownTable = options.some((item) => item.label === tableName)
 
   useEffect(() => {
     const changed =
       tableName !== initial.table ||
-      kind !== initial.kind ||
+      flavorName !== (initial.flavorName ?? '') ||
       durationMin !== String(initial.durationMin) ||
-      warmupMin !== String(initial.warmupMin) ||
-      elapsed !== String(initial.elapsedSmokingMin) ||
       running !== initial.running ||
-      alerts.join(',') !== initial.alertMinutes.join(',')
+      alerts.join(',') !== initial.alertMinutes.join(',') ||
+      seconds.join(',') !== (initial.alertSeconds ?? []).join(',')
     setDirty(changed)
     return () => setDirty(false)
-  }, [alerts, durationMin, elapsed, initial, kind, running, setDirty, tableName, warmupMin])
+  }, [alerts, durationMin, flavorName, initial, running, seconds, setDirty, tableName])
 
   return (
     <Modal
       title={hookah ? 'Редактирование кальяна' : 'Новый кальян'}
+      heading={
+        <input
+          className="field modal-title-input"
+          placeholder="новый кальян"
+          aria-label="Вкус"
+          value={flavorName}
+          onChange={(event) => setFlavorName(event.target.value)}
+        />
+      }
       onClose={onClose}
       footer={
         <>
           <Button onClick={onClose}>Отмена</Button>
-          <Button
-            variant="primary"
-            type="submit"
-            form="hookah-form"
-          >
+          <Button variant="primary" type="submit" form="hookah-form" disabled={options.length === 0}>
             Сохранить
           </Button>
         </>
@@ -94,14 +109,26 @@ export function HookahEditor({
         onSubmit={(event) => {
           event.preventDefault()
           const duration = Number(durationMin)
-          if (!tableName.trim() || !Number.isFinite(duration) || duration < 1) return
+          const allowed = options.some((item) => item.label === tableName) || tableName === initial.table
+          if (!tableName.trim() || !allowed || !Number.isFinite(duration) || duration < 1) return
           onSave({
             table: tableName,
-            kind,
+            flavorName: flavorName.trim(),
+            kind: hookah?.kind ?? '',
             durationMin: duration,
-            warmupMin: Number(warmupMin) || 0,
-            elapsedSmokingMin: Number(elapsed) || 0,
-            alertMinutes: alerts.map(Number).filter((minute) => Number.isFinite(minute) && minute > 0),
+            warmupMin: 0,
+            elapsedSmokingMin: initial.elapsedSmokingMin,
+            alertMinutes: alerts.map(Number).map((minute, index) => {
+              const sec = Number(seconds[index])
+              const hasSeconds = Number.isFinite(sec) && sec > 0
+              if (!Number.isFinite(minute) || minute < 0) return hasSeconds ? 0 : Number.NaN
+              return minute
+            }),
+            alertSeconds: seconds.map((value) => {
+              const sec = Number(value)
+              if (!Number.isFinite(sec) || sec <= 0) return 0
+              return Math.min(59, Math.round(sec))
+            }),
             x: initial.x,
             y: initial.y,
             running,
@@ -111,36 +138,32 @@ export function HookahEditor({
       >
         <label>
           Стол
-          <input className="field" value={tableName} onChange={(event) => setTableName(event.target.value)} required />
-        </label>
-        <label>
-          Вид кальяна
-          <select className="field" value={kind} onChange={(event) => setKind(event.target.value)}>
-            {HOOKAH_KINDS.map((item) => (
-              <option key={item}>{item}</option>
+          <select className="field" value={knownTable ? tableName : ''} onChange={(event) => setTableName(event.target.value)} required>
+            {options.length === 0 ? <option value="">Нет столов в зале</option> : null}
+            {!knownTable && tableName ? <option value={tableName}>{tableOption(tableName)}</option> : null}
+            {options.map((item) => (
+              <option key={item.id} value={item.label}>
+                {tableOption(item.label)}
+              </option>
             ))}
-            {!HOOKAH_KINDS.includes(kind as (typeof HOOKAH_KINDS)[number]) ? <option>{kind}</option> : null}
           </select>
         </label>
-        <div className="split">
-          <label>
-            Время курения, мин
-            <input className="field" inputMode="numeric" value={durationMin} onChange={(event) => setDurationMin(event.target.value)} required />
-          </label>
-          <label>
-            Прогрев, мин
-            <input className="field" inputMode="numeric" value={warmupMin} onChange={(event) => setWarmupMin(event.target.value)} />
-          </label>
-        </div>
         <label>
-          Уже курит, мин
-          <input className="field" inputMode="numeric" value={elapsed} onChange={(event) => setElapsed(event.target.value)} />
+          Время курения, мин
+          <input className="field" inputMode="numeric" value={durationMin} onChange={(event) => setDurationMin(event.target.value)} required />
         </label>
         <label className="check">
           <input type="checkbox" checked={running} onChange={(event) => setRunning(event.target.checked)} />
           Таймер запущен
         </label>
-        <AlertSettings minutes={alerts} onChange={setAlerts} />
+        <AlertSettings
+          minutes={alerts}
+          seconds={seconds}
+          onChange={(nextMinutes, nextSeconds) => {
+            setAlerts(nextMinutes)
+            setSeconds(nextSeconds)
+          }}
+        />
       </form>
     </Modal>
   )

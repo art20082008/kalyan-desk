@@ -3,12 +3,14 @@ import { Icon } from './Icon'
 
 export function Modal({
   title,
+  heading,
   onClose,
   children,
   narrow = false,
   footer,
 }: {
   title: string
+  heading?: ReactNode
   onClose: () => void
   children: ReactNode
   narrow?: boolean
@@ -32,7 +34,7 @@ export function Modal({
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className="modal-head">
-          <h2>{title}</h2>
+          {heading ?? <h2>{title}</h2>}
           <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть">
             <Icon name="x" />
           </button>
