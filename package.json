@@ -9,7 +9,7 @@
     "dev": "vite",
     "dev:web": "VITE_WEB_ONLY=1 vite --host 127.0.0.1 --port 43127 --strictPort",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "dist:win": "vite build && electron-builder --win",
+    "dist:win": "vite build && electron-builder --win zip --x64",
     "preview": "vite preview --host 127.0.0.1 --port 43127 --strictPort",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit"
@@ -38,15 +38,36 @@
     "directories": {
       "output": "release"
     },
+    "electronLanguages": [
+      "en-US",
+      "ru"
+    ],
+    "afterPack": "build/afterPack.cjs",
     "files": [
-      "dist/**",
-      "dist-electron/**"
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json",
+      "!node_modules",
+      "!node_modules/**"
+    ],
+    "extraFiles": [
+      {
+        "from": "build/КАК-ЗАПУСТИТЬ.txt",
+        "to": "КАК ЗАПУСТИТЬ.txt"
+      }
     ],
     "asar": true,
     "win": {
+      "icon": "build/icon.ico",
       "target": [
-        "nsis"
-      ]
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "Malevich-windows.${ext}"
     },
     "linux": {
       "target": [
