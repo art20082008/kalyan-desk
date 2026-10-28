@@ -260,6 +260,27 @@ describe('клавиши и текст', () => {
     expect(hotkeyAction({ key: 'c', ctrlKey: true, metaKey: false, altKey: false, target: plain })).toBeNull()
   })
 
+  it('не забирает пробел у поля ввода и у кнопки', () => {
+    const press = (key: string, target: object) =>
+      hotkeyAction({ key, ctrlKey: false, metaKey: false, altKey: false, target })
+    for (const tagName of ['TEXTAREA', 'SELECT', 'input', 'textarea', 'select']) {
+      expect(press(' ', { tagName })).toBeNull()
+      expect(press('ArrowLeft', { tagName })).toBeNull()
+      expect(press('ArrowRight', { tagName })).toBeNull()
+    }
+    const editable = { tagName: 'DIV', isContentEditable: true }
+    expect(press(' ', editable)).toBeNull()
+    expect(press('ArrowLeft', editable)).toBeNull()
+    expect(press('ArrowRight', editable)).toBeNull()
+    expect(press(' ', { tagName: 'BUTTON' })).toBeNull()
+    expect(press('ArrowRight', { tagName: 'BUTTON' })).toBe('next')
+    const insideButton = {
+      tagName: 'SPAN',
+      closest: (selector: string) => (selector.includes('button') ? {} : null),
+    }
+    expect(press(' ', insideButton)).toBeNull()
+  })
+
   it('не принимает число алертов вне диапазона 1–5 и дополняет старые данные', () => {
     expect(acceptAlertCount('0')).toBeNull()
     expect(acceptAlertCount('6')).toBeNull()

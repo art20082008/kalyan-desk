@@ -2,6 +2,8 @@ type IconName = 'pause' | 'play' | 'trash' | 'pencil' | 'x' | 'search' | 'chevro
 
 export function Icon({ name }: { name: IconName }) {
   const common = {
+    width: 16,
+    height: 16,
     viewBox: '0 0 24 24',
     fill: 'none',
     stroke: 'currentColor',

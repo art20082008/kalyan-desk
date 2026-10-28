@@ -127,12 +127,12 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                   ))}
                 </div>
               </div>
-              <TextField label="Время" type="time" value={weekTime} onChange={(event) => setWeekTime(event.target.value)} />
+              <TextField label="Время" type="time" lang="ru-RU" value={weekTime} onChange={(event) => setWeekTime(event.target.value)} />
             </div>
             <RadioOption label="В конце смены" selected={reminder === 'shift'} onSelect={() => setReminder('shift')} />
           </div>
         </div>
-        <TextField label="Конец смены" type="time" value={shiftEnd} onChange={(event) => setShiftEnd(event.target.value)} />
+        <TextField label="Конец смены" type="time" lang="ru-RU" value={shiftEnd} onChange={(event) => setShiftEnd(event.target.value)} />
         <div className="alert-preset">
           <header>
             <p>
