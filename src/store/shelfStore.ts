@@ -22,23 +22,19 @@ export function useShelf() {
     requestLines,
     move(id: string, to: FlavorStatus) {
       const now = Date.now()
-      let undo = app.undo
-      app.update((data) => {
-        const result = moveFlavor(data.flavors, id, to, now)
-        undo = result.undo
-        return { ...data, flavors: result.flavors }
-      })
-      app.setUndo(undo)
+      const result = moveFlavor(app.data.flavors, id, to, now)
+      if (!result.undo) return
+      app.update((data) => ({ ...data, flavors: moveFlavor(data.flavors, id, to, now).flavors }))
+      app.setUndo(result.undo)
     },
     forward(id: string) {
       const now = Date.now()
-      let undo = app.undo
-      app.update((data) => {
-        const result = forwardFlavor(data.flavors, id, now)
-        undo = result.undo
-        return { ...data, flavors: result.flavors }
-      })
-      app.setUndo(undo)
+      const current = app.data.flavors.find((flavor) => flavor.id === id)
+      if (!current) return
+      const result = forwardFlavor(app.data.flavors, id, now)
+      if (!result.undo) return
+      app.update((data) => ({ ...data, flavors: forwardFlavor(data.flavors, id, now).flavors }))
+      app.setUndo(result.undo)
     },
     undoLast() {
       const current = app.undo

@@ -12,7 +12,7 @@ export function AlertSettings({
       {minutes.length === 0 ? <p className="muted">Пока нет предупреждений.</p> : null}
       <ul className="alert-list">
         {minutes.map((minute, index) => (
-          <li key={`${index}-${minute}`}>
+          <li key={index}>
             <label>
               Минута
               <input

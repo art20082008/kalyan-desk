@@ -1,20 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef } from 'react'
 import type { Hookah } from '../../types'
 import { openAlerts } from '../../domain/timers'
-
-interface Rect {
-  left: number
-  top: number
-  width: number
-  height: number
-}
-
-function contained(containerW: number, containerH: number, imageW: number, imageH: number): Rect {
-  const scale = Math.min(containerW / imageW, containerH / imageH)
-  const width = imageW * scale
-  const height = imageH * scale
-  return { left: (containerW - width) / 2, top: (containerH - height) / 2, width, height }
-}
 
 export function buildSamplePlan(): string {
   const canvas = document.createElement('canvas')
@@ -76,21 +62,7 @@ export function FloorPlan({
   onOpen: (id: string) => void
   onMove: (id: string, x: number, y: number) => void
 }) {
-  const frameRef = useRef<HTMLDivElement>(null)
-  const [rect, setRect] = useState<Rect | null>(null)
-  const [natural, setNatural] = useState({ w: 1, h: 1 })
-
-  useEffect(() => {
-    const frame = frameRef.current
-    if (!frame) return
-    const measure = () => {
-      setRect(contained(frame.clientWidth, frame.clientHeight, natural.w, natural.h))
-    }
-    measure()
-    const observer = new ResizeObserver(measure)
-    observer.observe(frame)
-    return () => observer.disconnect()
-  }, [natural, imageUrl])
+  const stageRef = useRef<HTMLDivElement>(null)
 
   if (!imageUrl) {
     return (
@@ -125,80 +97,77 @@ export function FloorPlan({
           </button>
         </div>
       </header>
-      <div
-        className="plan-frame"
-        ref={frameRef}
-        data-noswipe
-        onClick={(event) => {
-          if (!rect || (event.target as HTMLElement).closest('.pin')) return
-          const bounds = frameRef.current?.getBoundingClientRect()
-          if (!bounds) return
-          const x = ((event.clientX - bounds.left - rect.left) / rect.width) * 100
-          const y = ((event.clientY - bounds.top - rect.top) / rect.height) * 100
-          if (x < 0 || y < 0 || x > 100 || y > 100) return
-          onPlace(Math.round(x * 10) / 10, Math.round(y * 10) / 10)
-        }}
-      >
-        <img
-          src={imageUrl}
-          alt="План посадки зала"
-          onLoad={(event) => setNatural({ w: event.currentTarget.naturalWidth, h: event.currentTarget.naturalHeight })}
-        />
-        {rect
-          ? hookahs
-              .filter((hookah) => hookah.x != null && hookah.y != null)
-              .map((hookah) => {
-                const alerting = openAlerts(hookah, now).length > 0
-                return (
-                  <button
-                    key={hookah.id}
-                    type="button"
-                    className={alerting ? 'pin alerting' : 'pin'}
-                    style={{ left: rect.left + (rect.width * (hookah.x ?? 0)) / 100, top: rect.top + (rect.height * (hookah.y ?? 0)) / 100 }}
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      if (event.currentTarget.dataset.skip === '1') {
-                        delete event.currentTarget.dataset.skip
-                        return
+      <div className="plan-frame">
+        <div
+          className="plan-stage"
+          ref={stageRef}
+          data-noswipe
+          onClick={(event) => {
+            if ((event.target as HTMLElement).closest('.pin')) return
+            const bounds = stageRef.current?.getBoundingClientRect()
+            if (!bounds || bounds.width === 0 || bounds.height === 0) return
+            const x = ((event.clientX - bounds.left) / bounds.width) * 100
+            const y = ((event.clientY - bounds.top) / bounds.height) * 100
+            if (x < 0 || y < 0 || x > 100 || y > 100) return
+            onPlace(Math.round(x * 10) / 10, Math.round(y * 10) / 10)
+          }}
+        >
+          <img src={imageUrl} alt="План посадки зала" />
+          {hookahs
+            .filter((hookah) => hookah.x != null && hookah.y != null)
+            .map((hookah) => {
+              const alerting = openAlerts(hookah, now).length > 0
+              return (
+                <button
+                  key={hookah.id}
+                  type="button"
+                  className={alerting ? 'pin alerting' : 'pin'}
+                  style={{ left: `${hookah.x}%`, top: `${hookah.y}%` }}
+                  onClick={(event) => {
+                    event.stopPropagation()
+                    if (event.currentTarget.dataset.skip === '1') {
+                      delete event.currentTarget.dataset.skip
+                      return
+                    }
+                    onOpen(hookah.id)
+                  }}
+                  onPointerDown={(event) => {
+                    const pin = event.currentTarget
+                    const startX = event.clientX
+                    const startY = event.clientY
+                    const originX = hookah.x ?? 0
+                    const originY = hookah.y ?? 0
+                    let moved = false
+                    const move = (ev: PointerEvent) => {
+                      const bounds = stageRef.current?.getBoundingClientRect()
+                      if (!bounds || bounds.width === 0) return
+                      const dx = ((ev.clientX - startX) / bounds.width) * 100
+                      const dy = ((ev.clientY - startY) / bounds.height) * 100
+                      if (Math.abs(dx) + Math.abs(dy) > 1.2) moved = true
+                      const x = Math.min(100, Math.max(0, Math.round((originX + dx) * 10) / 10))
+                      const y = Math.min(100, Math.max(0, Math.round((originY + dy) * 10) / 10))
+                      pin.style.left = `${x}%`
+                      pin.style.top = `${y}%`
+                      pin.dataset.x = String(x)
+                      pin.dataset.y = String(y)
+                    }
+                    const up = () => {
+                      window.removeEventListener('pointermove', move)
+                      window.removeEventListener('pointerup', up)
+                      if (moved && pin.dataset.x && pin.dataset.y) {
+                        pin.dataset.skip = '1'
+                        onMove(hookah.id, Number(pin.dataset.x), Number(pin.dataset.y))
                       }
-                      onOpen(hookah.id)
-                    }}
-                    onPointerDown={(event) => {
-                      const pin = event.currentTarget
-                      const startX = event.clientX
-                      const startY = event.clientY
-                      const originX = hookah.x ?? 0
-                      const originY = hookah.y ?? 0
-                      let moved = false
-                      const move = (ev: PointerEvent) => {
-                        if (!rect) return
-                        const dx = ((ev.clientX - startX) / rect.width) * 100
-                        const dy = ((ev.clientY - startY) / rect.height) * 100
-                        if (Math.abs(dx) + Math.abs(dy) > 1.2) moved = true
-                        const x = Math.min(100, Math.max(0, Math.round((originX + dx) * 10) / 10))
-                        const y = Math.min(100, Math.max(0, Math.round((originY + dy) * 10) / 10))
-                        pin.style.left = `${rect.left + (rect.width * x) / 100}px`
-                        pin.style.top = `${rect.top + (rect.height * y) / 100}px`
-                        pin.dataset.x = String(x)
-                        pin.dataset.y = String(y)
-                      }
-                      const up = () => {
-                        window.removeEventListener('pointermove', move)
-                        window.removeEventListener('pointerup', up)
-                        if (moved && pin.dataset.x && pin.dataset.y) {
-                          pin.dataset.skip = '1'
-                          onMove(hookah.id, Number(pin.dataset.x), Number(pin.dataset.y))
-                        }
-                      }
-                      window.addEventListener('pointermove', move)
-                      window.addEventListener('pointerup', up)
-                    }}
-                  >
-                    <span>{hookah.table}</span>
-                  </button>
-                )
-              })
-          : null}
+                    }
+                    window.addEventListener('pointermove', move)
+                    window.addEventListener('pointerup', up)
+                  }}
+                >
+                  <span>{hookah.table}</span>
+                </button>
+              )
+            })}
+        </div>
       </div>
     </section>
   )
