@@ -1,10 +1,14 @@
 import type { Hookah } from '../../types'
-import { formatClock, formatReaction } from '../../domain/format'
-import { openAlerts, reactionMs, timerSnapshot } from '../../domain/timers'
+import { timerFace } from '../../domain/timers'
+import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
+import { IconButton } from '../ui/IconButton'
+import { TagChip } from '../ui/TagChip'
 
 export function TimerCard({
   hookah,
   now,
+  focused,
   onEdit,
   onDelete,
   onToggle,
@@ -13,74 +17,67 @@ export function TimerCard({
 }: {
   hookah: Hookah
   now: number
+  focused: boolean
   onEdit: () => void
   onDelete: () => void
   onToggle: () => void
   onFinish: () => void
   onAcknowledge: () => void
 }) {
-  const snap = timerSnapshot(hookah, now)
-  const alerts = openAlerts(hookah, now)
-  const earliest = alerts.reduce<typeof alerts[number] | null>((best, alert) => {
-    if (!best) return alert
-    return (alert.firedAt ?? now) < (best.firedAt ?? now) ? alert : best
-  }, null)
-  const waiting = earliest ? reactionMs(earliest, now) : null
-  const phaseLabel =
-    snap.phase === 'warmup' ? 'Прогрев' : snap.phase === 'finished' ? 'Готово' : snap.phase === 'idle' ? 'Не запущен' : 'Курение'
-  const acked = hookah.alerts.filter((alert) => alert.ackedAt && alert.firedAt)
+  const face = timerFace(hookah, now)
+  const alerting = face.visual === 'alert'
+  const className = [
+    'timer-card',
+    alerting && focused ? 'focused' : '',
+    alerting && !focused ? 'alert' : '',
+    face.visual === 'overtime' ? 'overtime' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
-    <article className={alerts.length > 0 ? 'timer-card alerting' : 'timer-card'}>
+    <article className={className}>
+      {alerting && focused ? (
+        <div className="hotkey-inline">
+          <span className="hotkey-key">Пробел</span>
+          <span>гасит этот стол</span>
+        </div>
+      ) : null}
       <header className="timer-head">
-        <div>
-          <p className="eyebrow">{hookah.table}</p>
-          <h3>{hookah.kind}</h3>
-        </div>
-        <span className={alerts.length > 0 ? 'pill danger' : 'pill'}>{phaseLabel}</span>
+        <p>{hookah.table}</p>
+        <TagChip label={face.tag} tone={face.tagTone} />
       </header>
-      <p className="time">{formatClock(snap.remainingMs)}</p>
-      <div className="bar" aria-hidden="true">
-        <span style={{ width: `${Math.round(snap.progress * 100)}%` }} />
-      </div>
-      <p className="muted">
-        {snap.phase === 'warmup'
-          ? `До курения ${formatClock(snap.remainingMs)} · сессия ${hookah.durationMin} мин`
-          : `${Math.round(snap.progress * 100)}% · план ${hookah.durationMin} мин`}
-      </p>
-      {earliest && waiting != null ? (
-        <div className="alert-banner">
-          <div>
-            <strong>Алерт на {earliest.atMin} мин</strong>
-            <p>Без реакции {formatReaction(waiting)}</p>
-          </div>
-          <button type="button" className="btn primary" onClick={onAcknowledge}>
-            Обновить
-          </button>
+      <div className="timer-body">
+        <div className="timer-main">
+          <span className="timer-kind">{hookah.kind}</span>
+          <p className={`time ${face.clockTone === 'primary' ? '' : face.clockTone}`.trim()}>{face.clock}</p>
         </div>
-      ) : null}
-      {acked.length > 0 ? (
-        <p className="muted">
-          Реакция: {acked.map((alert) => `${alert.atMin} мин — ${formatReaction(alert.ackedAt! - alert.firedAt!)}`).join(', ')}
-        </p>
-      ) : null}
-      <div className="row wrap">
-        {snap.phase !== 'finished' ? (
-          <button type="button" className="btn" onClick={onToggle}>
-            {hookah.running ? 'Пауза' : 'Продолжить'}
-          </button>
-        ) : null}
-        {snap.phase === 'warmup' || snap.phase === 'smoking' ? (
-          <button type="button" className="btn" onClick={onFinish}>
-            Завершить
-          </button>
-        ) : null}
-        <button type="button" className="btn" onClick={onEdit}>
-          Изменить
-        </button>
-        <button type="button" className="btn danger" onClick={onDelete}>
-          Удалить
-        </button>
+        <div className="timer-progress">
+          <div className={`bar ${face.barTone === 'brand' ? '' : face.barTone}`.trim()} aria-hidden="true">
+            <span style={{ width: `${Math.round(face.progress * 100)}%` }} />
+          </div>
+          <p className="plan-line">{face.plan}</p>
+          {face.detail ? <p className={`detail ${face.detailTone}`}>{face.detail}</p> : null}
+        </div>
+      </div>
+      {face.reaction ? <p className="reaction">{face.reaction}</p> : null}
+      <div className="timer-actions">
+        <div className="timer-primary">
+          {face.showContinue ? (
+            <Button variant="primary" onClick={onAcknowledge}>
+              Продолжить
+              <Icon name="play" />
+            </Button>
+          ) : null}
+          {face.visual !== 'finished' ? (
+            <IconButton name={face.running ? 'pause' : 'play'} label={face.running ? 'Пауза' : 'Запустить'} onClick={onToggle} />
+          ) : null}
+          {face.showFinish ? <Button onClick={onFinish}>Завершить</Button> : null}
+        </div>
+        <div className="timer-secondary">
+          <IconButton name="pencil" label="Изменить" onClick={onEdit} />
+          <IconButton name="trash" label="Удалить" danger onClick={onDelete} />
+        </div>
       </div>
     </article>
   )

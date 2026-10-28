@@ -22,16 +22,12 @@ export function StopList({
     >
       <header>
         <h3>Закончились</h3>
-        <span className="pill">{flavors.length}</span>
+        <span>{flavors.length}</span>
       </header>
-      {flavors.length === 0 ? (
-        <div className="empty compact">
-          <h3>Стоп-лист пуст</h3>
-          <p>Перетащите вкус сюда или нажмите «Закончился».</p>
-        </div>
-      ) : (
-        flavors.map((flavor) => <FlavorCard key={flavor.id} flavor={flavor} onMove={onMove} />)
-      )}
+      {flavors.length === 0 ? <p className="muted">Стоп-лист пуст. Перетащите вкус сюда или нажмите «Закончился».</p> : null}
+      {flavors.map((flavor) => (
+        <FlavorCard key={flavor.id} flavor={flavor} onMove={onMove} />
+      ))}
     </section>
   )
 }

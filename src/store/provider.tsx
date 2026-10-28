@@ -3,7 +3,8 @@ import type { AppData, UndoMove } from '../types'
 import { storage } from '../data/localDb'
 import { applyTimerTick } from '../domain/timers'
 import { markReminded, REMINDER_TEXT, reminderDue } from '../domain/reminders'
-import { playAlert } from '../feedback/alertSound'
+import { setAlertLoop } from '../feedback/alertSound'
+import { openAlerts } from '../domain/timers'
 import { AppStateContext } from './context'
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
@@ -85,7 +86,6 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       const tickNow = Date.now()
       let next = applyTimerTick(current, tickNow)
       if (next.fired.length > 0) {
-        playAlert()
         const tables = [...new Set(next.fired.map((item) => item.table))].join(', ')
         storage.notify('Малевич', `Алерт на ${tables}`)
         setToast(`Алерт: ${tables}`)
@@ -98,9 +98,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         storage.notify('Малевич', REMINDER_TEXT)
       }
       if (nextData !== current) setData(nextData)
+      setAlertLoop(nextData.hookahs.some((hookah) => openAlerts(hookah, tickNow).length > 0))
       setNow(tickNow)
     }, 1000)
-    return () => window.clearInterval(id)
+    return () => {
+      window.clearInterval(id)
+      setAlertLoop(false)
+    }
   }, [status])
 
   useEffect(() => {

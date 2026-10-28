@@ -91,7 +91,7 @@ export function useShelf() {
         area.remove()
       }
       rememberRequest()
-      app.showToast('Текст заявки скопирован')
+      app.showToast('Скопировано')
       return true
     },
   }

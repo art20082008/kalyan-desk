@@ -1,5 +1,6 @@
 import { brandCounts } from '../../domain/shelf'
 import type { Flavor } from '../../types'
+import { ChoiceChip } from '../ui/ChoiceChip'
 
 export function BrandChips({
   flavors,
@@ -10,23 +11,21 @@ export function BrandChips({
   active: string | null
   onChange: (brand: string | null) => void
 }) {
-  const brands = brandCounts(flavors)
+  const brands = [...brandCounts(flavors)].sort((a, b) => b.total - a.total || a.brand.localeCompare(b.brand, 'ru'))
   return (
     <div className="chips" role="tablist" aria-label="Бренды">
-      <button type="button" className={active == null ? 'chip active' : 'chip'} onClick={() => onChange(null)}>
+      <ChoiceChip selected={active == null} count={flavors.length} onClick={() => onChange(null)}>
         Все
-        <span>{flavors.filter((flavor) => flavor.status !== 'shelf').length}</span>
-      </button>
+      </ChoiceChip>
       {brands.map((brand) => (
-        <button
+        <ChoiceChip
           key={brand.brand}
-          type="button"
-          className={active === brand.brand ? 'chip active' : 'chip'}
+          selected={active === brand.brand}
+          count={brand.total}
           onClick={() => onChange(active === brand.brand ? null : brand.brand)}
         >
           {brand.brand}
-          <span>{brand.ended}</span>
-        </button>
+        </ChoiceChip>
       ))}
     </div>
   )

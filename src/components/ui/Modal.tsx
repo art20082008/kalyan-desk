@@ -1,15 +1,18 @@
 import { useEffect, type ReactNode } from 'react'
+import { Icon } from './Icon'
 
 export function Modal({
   title,
   onClose,
   children,
   narrow = false,
+  footer,
 }: {
   title: string
   onClose: () => void
   children: ReactNode
   narrow?: boolean
+  footer?: ReactNode
 }) {
   useEffect(() => {
     const previous = document.body.style.overflow
@@ -30,11 +33,12 @@ export function Modal({
       >
         <header className="modal-head">
           <h2>{title}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="Закрыть">
-            ×
+          <button type="button" className="modal-close" onClick={onClose} aria-label="Закрыть">
+            <Icon name="x" />
           </button>
         </header>
         {children}
+        {footer ? <footer className="modal-footer">{footer}</footer> : null}
       </div>
     </div>
   )

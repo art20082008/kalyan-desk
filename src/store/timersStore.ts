@@ -1,4 +1,4 @@
-import { playAlert } from '../feedback/alertSound'
+import { setAlertLoop } from '../feedback/alertSound'
 import type { HookahDraft } from '../domain/timers'
 import {
   acknowledgeAlert,
@@ -7,6 +7,7 @@ import {
   createHookah,
   earliestOpenAlert,
   finishHookah,
+  openAlerts,
   stampDueAlerts,
   toggleRunning,
 } from '../domain/timers'
@@ -23,8 +24,21 @@ export function useTimers() {
     add(draft: HookahDraft) {
       const now = Date.now()
       const hookah = createHookah(draft, now)
-      if (hookah.alerts.some((alert) => alert.firedAt && !alert.ackedAt)) playAlert()
+      if (hookah.alerts.some((alert) => alert.firedAt && !alert.ackedAt)) setAlertLoop(true)
       app.update((data) => ({ ...data, hookahs: [...data.hookahs, hookah] }))
+    },
+    addTable() {
+      app.update((data) => {
+        const numbers = data.tables.map((table) => {
+          const match = /(\d+)\s*$/.exec(table.label)
+          return match ? Number(match[1]) : 0
+        })
+        const next = Math.max(0, ...numbers) + 1
+        return {
+          ...data,
+          tables: [...data.tables, { id: crypto.randomUUID(), label: `Стол ${next}` }],
+        }
+      })
     },
     save(id: string, draft: HookahDraft) {
       const now = Date.now()
@@ -58,21 +72,23 @@ export function useTimers() {
     },
     acknowledge(id: string) {
       const now = Date.now()
-      app.update((data) => ({
-        ...data,
-        hookahs: data.hookahs.map((hookah) => {
+      app.update((data) => {
+        const hookahs = data.hookahs.map((hookah) => {
           if (hookah.id !== id) return hookah
           const stamped = stampDueAlerts([hookah], now).hookahs[0]
           const alertId = earliestOpenAlert([stamped], now)?.alertId
           return alertId ? acknowledgeAlert(stamped, alertId, now) : hookah
-        }),
-      }))
+        })
+        setAlertLoop(hookahs.some((hookah) => openAlerts(hookah, now).length > 0))
+        return { ...data, hookahs }
+      })
     },
     acknowledgeEarliest(): boolean {
       const now = Date.now()
       if (!earliestOpenAlert(app.data.hookahs, now)) return false
       app.update((data) => {
         const hookahs = acknowledgeEarliest(data.hookahs, now)
+        setAlertLoop(hookahs.some((hookah) => openAlerts(hookah, now).length > 0))
         return hookahs === data.hookahs ? data : { ...data, hookahs }
       })
       return true

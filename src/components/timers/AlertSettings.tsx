@@ -8,7 +8,7 @@ export function AlertSettings({
   return (
     <fieldset className="alerts">
       <legend>Алерты</legend>
-      <p className="muted">Минуты от начала курения, без прогрева. У каждого кальяна свой список.</p>
+      <p className="muted">Интервалы по очереди. Следующий отсчитывается от нажатия «Продолжить», а не от срабатывания.</p>
       {minutes.length === 0 ? <p className="muted">Пока нет предупреждений.</p> : null}
       <ul className="alert-list">
         {minutes.map((minute, index) => (

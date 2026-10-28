@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import type { SectionId } from './types'
 import { hotkeyAction } from './domain/hotkeys'
 import { useApp } from './store/context'
-import { useShelf } from './store/shelfStore'
 import { useTimers } from './store/timersStore'
 import { HistorySection } from './components/history/HistorySection'
 import { SettingsDialog } from './components/SettingsDialog'
 import { ShelfSection } from './components/shelf/ShelfSection'
 import { TimersSection } from './components/timers/TimersSection'
+import { Button } from './components/ui/Button'
+import { Icon } from './components/ui/Icon'
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: 'timers', label: 'Ведение кальянов' },
@@ -18,23 +19,14 @@ const SECTIONS: { id: SectionId; label: string }[] = [
 export function App() {
   const app = useApp()
   const timers = useTimers()
-  const shelf = useShelf()
   const [section, setSection] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [closeSignal, setCloseSignal] = useState(0)
-  const [seenClose, setSeenClose] = useState(0)
   const timersRef = useRef(timers)
-  const shelfRef = useRef(shelf)
   const toastRef = useRef(app.showToast)
   timersRef.current = timers
-  shelfRef.current = shelf
   toastRef.current = app.showToast
   const swipe = useRef<{ x: number; y: number; blocked: boolean } | null>(null)
-
-  if (seenClose !== closeSignal) {
-    setSeenClose(closeSignal)
-    setSettingsOpen(false)
-  }
+  const name = app.data.settings.organizationName.trim() || 'Малевич'
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -46,16 +38,13 @@ export function App() {
         target: event.target,
       })
       if (!action) return
-      if (action !== 'close') event.preventDefault()
-      if (action === 'close') setCloseSignal((value) => value + 1)
+      event.preventDefault()
       if (action === 'prev') setSection((value) => (value + SECTIONS.length - 1) % SECTIONS.length)
       if (action === 'next') setSection((value) => (value + 1) % SECTIONS.length)
       if (action === 'ack') {
         const done = timersRef.current.acknowledgeEarliest()
         if (!done) toastRef.current('Нет алертов, которые ждут реакции')
       }
-      if (action === 'excel') void shelfRef.current.exportExcel()
-      if (action === 'copy') void shelfRef.current.copyText()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -64,10 +53,7 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar">
-        <div className="brand">
-          <strong>Малевич</strong>
-          <span>кальянная</span>
-        </div>
+        <div className="brand">{name}</div>
         <nav className="tabs" aria-label="Разделы">
           {SECTIONS.map((item, index) => (
             <button
@@ -83,30 +69,28 @@ export function App() {
         </nav>
         <div className="top-actions">
           <span className={app.saveError ? 'save bad' : 'save'}>
-            {app.saveError ? 'Не сохранено' : app.savedAt ? 'Сохранено' : 'Локально'}
+            {app.saveError ? null : <Icon name="check" />}
+            {app.saveError ? 'Не сохранено' : 'Все изменения сохранены'}
           </span>
-          <button type="button" className="btn" onClick={() => setSettingsOpen(true)}>
+          <Button variant="small" onClick={() => setSettingsOpen(true)}>
             Настройки
-          </button>
+          </Button>
         </div>
       </header>
       {app.reminder ? (
         <div className="reminder">
           <p>{app.reminder}</p>
           <div className="row">
-            <button
-              type="button"
-              className="btn primary"
+            <Button
+              variant="primary"
               onClick={() => {
                 setSection(1)
                 app.dismissReminder()
               }}
             >
               К полке
-            </button>
-            <button type="button" className="btn" onClick={app.dismissReminder}>
-              Позже
-            </button>
+            </Button>
+            <Button onClick={app.dismissReminder}>Позже</Button>
           </div>
         </div>
       ) : null}
@@ -133,11 +117,10 @@ export function App() {
           })
         }}
       >
-        {section === 0 ? <TimersSection closeSignal={closeSignal} /> : null}
+        {section === 0 ? <TimersSection /> : null}
         {section === 1 ? <ShelfSection /> : null}
         {section === 2 ? <HistorySection /> : null}
       </main>
-      <footer className="hint">Пробел — самый ранний алерт · Ctrl+S — Excel · Ctrl+C — текст заявки · Esc — закрыть · ← → разделы</footer>
       {settingsOpen ? <SettingsDialog onClose={() => setSettingsOpen(false)} /> : null}
     </div>
   )

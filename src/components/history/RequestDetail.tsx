@@ -8,19 +8,17 @@ export function RequestDetail({ request }: { request: OrderRequest }) {
     groups.set(line.brand, names)
   }
   return (
-    <div className="request-detail">
+    <>
       {[...groups.entries()]
         .sort((a, b) => a[0].localeCompare(b[0], 'ru'))
         .map(([brand, names]) => (
-          <div key={brand}>
-            <p className="eyebrow">{brand}</p>
-            <ul>
-              {names.sort((a, b) => a.localeCompare(b, 'ru')).map((name) => (
-                <li key={name}>{name}</li>
-              ))}
-            </ul>
+          <div key={brand} className="request-line">
+            <p>{brand}</p>
+            {names.sort((a, b) => a.localeCompare(b, 'ru')).map((name) => (
+              <strong key={name}>{name}</strong>
+            ))}
           </div>
         ))}
-    </div>
+    </>
   )
 }

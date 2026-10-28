@@ -4,9 +4,11 @@ import { plural } from '../../domain/format'
 import { useShelf } from '../../store/shelfStore'
 import { BrandChips } from './BrandChips'
 import { FlavorList } from './FlavorList'
-import { RequestExport } from './RequestExport'
 import { ShelfVisual } from './ShelfVisual'
 import { StopList } from './StopList'
+import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
+import { TextField } from '../ui/TextField'
 
 export function ShelfSection() {
   const shelf = useShelf()
@@ -15,6 +17,7 @@ export function ShelfSection() {
   const [newBrand, setNewBrand] = useState('')
   const [newName, setNewName] = useState('')
   const [formError, setFormError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const filtered = shelf.flavors.filter((flavor) => {
     if (brand && flavor.brand !== brand) return false
@@ -24,33 +27,30 @@ export function ShelfSection() {
   })
 
   const brands = [...new Set(shelf.flavors.map((flavor) => flavor.brand))].sort((a, b) => a.localeCompare(b, 'ru'))
+  const total = shelf.flavors.length
 
   return (
-    <div className="section">
-      <div className="section-head">
-        <div>
-          <h2>Кальянная полка</h2>
-          <p className="muted">
-            {shelf.flavors.length} {plural(shelf.flavors.length, 'вкус', 'вкуса', 'вкусов')} из {MAX_SKU}. Клик и
-            перетаскивание двигают карточку между колонками.
-          </p>
-        </div>
+    <div className="page">
+      <div>
+        <h2 className="page-title">Кальянная полка</h2>
+        <p className="page-lead">
+          На полке {total} {plural(total, 'вкус', 'вкуса', 'вкусов')} из {MAX_SKU} в базе. Карточку можно перетащить в
+          другую колонку или перенести кнопкой.
+        </p>
       </div>
       <form
-        className="add-form"
+        className="shelf-add"
         onSubmit={(event) => {
           event.preventDefault()
           const error = shelf.add(newBrand, newName)
           setFormError(error)
-          if (!error) {
-            setNewName('')
-          }
+          if (!error) setNewName('')
         }}
       >
-        <input
-          className="field"
+        <TextField
+          label="Бренд"
           list="brands"
-          placeholder="Бренд"
+          placeholder="Например, Darkside"
           value={newBrand}
           onChange={(event) => setNewBrand(event.target.value)}
         />
@@ -59,25 +59,27 @@ export function ShelfSection() {
             <option key={item} value={item} />
           ))}
         </datalist>
-        <input className="field" placeholder="Вкус" value={newName} onChange={(event) => setNewName(event.target.value)} />
-        <button type="submit" className="btn primary">
+        <TextField label="Вкус" placeholder="Например, Supernova" value={newName} onChange={(event) => setNewName(event.target.value)} />
+        <Button variant="brand" type="submit">
           Добавить вкус
-        </button>
+        </Button>
         {shelf.flavors.length === 0 ? (
-          <button type="button" className="btn" onClick={shelf.loadStarter}>
+          <Button variant="small" onClick={shelf.loadStarter}>
             Пример полки
-          </button>
+          </Button>
         ) : null}
       </form>
       {formError ? <p className="form-error">{formError}</p> : null}
       <div className="shelf-tools">
         <BrandChips flavors={shelf.flavors} active={brand} onChange={setBrand} />
-        <input
-          className="field search"
-          placeholder="Найти вкус"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
+        <label className="search">
+          <Icon name="search" />
+          <input
+            placeholder="Найти вкус или бренд"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
       </div>
       <div className="board">
         <ShelfVisual
@@ -93,25 +95,21 @@ export function ShelfSection() {
         />
         <FlavorList
           flavors={filtered.filter((flavor) => flavor.status === 'request')}
-          onMove={shelf.move}
+          copied={copied}
           onDrop={(id) => shelf.move(id, 'request')}
+          onExport={() => {
+            void shelf.copyText().then((ok) => {
+              if (!ok) return
+              setCopied(true)
+              window.setTimeout(() => setCopied(false), 1600)
+            })
+          }}
         />
       </div>
-      <RequestExport
-        count={shelf.requestLines.length}
-        onExcel={() => {
-          void shelf.exportExcel()
-        }}
-        onCopy={() => {
-          void shelf.copyText()
-        }}
-      />
       {shelf.undo ? (
         <div className="undo">
           <span>Вкус перенесён</span>
-          <button type="button" className="btn" onClick={shelf.undoLast}>
-            Отменить
-          </button>
+          <Button onClick={shelf.undoLast}>Отменить</Button>
         </div>
       ) : null}
     </div>

@@ -17,10 +17,12 @@ export type FlavorStatus = 'shelf' | 'stop' | 'request'
 
 export interface HookahAlert {
   id: string
-  /** Минута курения (после прогрева), на которой срабатывает алерт. */
+  /** Длина интервала в минутах. Следующий отсчёт начинается с подтверждения предыдущего. */
   atMin: number
   firedAt: number | null
   ackedAt: number | null
+  /** Сколько уже шло курение (мс) в момент подтверждения. От этой точки считается следующий интервал. */
+  ackedSmokingMs: number | null
 }
 
 export interface Hookah {
@@ -87,6 +89,19 @@ export interface Settings {
   lastWeeklyReminderAt: number | null
   /** Календарный день, когда уже напомнили в конце смены: ГГГГ-ММ-ДД. */
   lastShiftReminderOn: string | null
+  /** Название в шапке. По умолчанию «Малевич». */
+  organizationName: string
+  /** 1 = понедельник … 7 = воскресенье. */
+  weekDay: number
+  /** Локальное время еженедельного напоминания, «ЧЧ:ММ». */
+  weekTime: string
+  /** Интервалы алертов нового кальяна, от 1 до 5 значений в минутах. */
+  alertIntervals: number[]
+}
+
+export interface HallTable {
+  id: string
+  label: string
 }
 
 export interface PlanMeta {
@@ -102,6 +117,8 @@ export interface AppData {
   sessions: SmokingSession[]
   settings: Settings
   plan: PlanMeta | null
+  /** Столы схемы зала. Старый JPEG плана не удаляется, но в интерфейсе не используется. */
+  tables: HallTable[]
 }
 
 export interface UndoMove {

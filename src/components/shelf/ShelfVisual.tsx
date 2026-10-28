@@ -12,10 +12,10 @@ export function ShelfVisual({
   onRemove: (id: string) => void
   onDrop: (id: string) => void
 }) {
-  const brands = [...new Set(flavors.map((flavor) => flavor.brand))]
+  const brands = [...new Set(flavors.map((flavor) => flavor.brand))].sort((a, b) => a.localeCompare(b, 'ru'))
   return (
     <section
-      className="column shelf-visual"
+      className="column"
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => {
         event.preventDefault()
@@ -25,12 +25,12 @@ export function ShelfVisual({
     >
       <header>
         <h3>На полке</h3>
-        <span className="pill">{flavors.length}</span>
+        <span>{flavors.length}</span>
       </header>
       {flavors.length === 0 ? <p className="muted">Полка пуста. Добавьте вкус или верните его из стоп-листа.</p> : null}
       {brands.map((brand) => (
-        <div key={brand} className="plank">
-          <p className="eyebrow">{brand}</p>
+        <div key={brand}>
+          <p className="brand-label">{brand.toLocaleUpperCase('ru')}</p>
           {flavors
             .filter((flavor) => flavor.brand === brand)
             .map((flavor) => (

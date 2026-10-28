@@ -1,73 +1,92 @@
 import type { BrandRank, FlavorRank, SmokingAverage } from '../../domain/analytics'
-import type { Flavor } from '../../types'
 import { plural } from '../../domain/format'
+import type { Flavor, Hookah } from '../../types'
+import { timerSnapshot } from '../../domain/timers'
+import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 
 export function Analytics({
   top,
   brands,
   ended,
   smoking,
+  live,
+  now,
   onExport,
 }: {
   top: FlavorRank[]
   brands: BrandRank[]
   ended: Flavor[]
   smoking: SmokingAverage
+  live: Hookah[]
+  now: number
   onExport: () => void
 }) {
+  const active = live.find((hookah) => hookah.finishedAt == null && hookah.running)
+  const liveMin = active ? Math.max(0, Math.round(timerSnapshot(active, now).smokingMs / 60_000)) : null
+  const value = smoking.averageMin != null ? `${smoking.averageMin} мин` : liveMin != null ? `${liveMin} мин` : '—'
+  const caption =
+    smoking.averageMin != null
+      ? `Среднее по ${smoking.count} ${plural(smoking.count, 'сессии', 'сессиям', 'сессиям')}`
+      : active
+        ? `Идёт сейчас (${active.table}). Среднее появится после первой завершённой сессии`
+        : 'Среднее появится после первой завершённой сессии'
+
   return (
     <section className="analytics">
-      <header className="section-head">
-        <h3>Мини-аналитика</h3>
-        <button type="button" className="btn primary" onClick={onExport}>
-          Выгрузить аналитику в Excel
-        </button>
+      <header>
+        <h3>Аналитика</h3>
+        <Button variant="small" onClick={onExport}>
+          Выгрузить в Excel
+        </Button>
       </header>
-      <div className="stat-grid">
-        <article className="stat">
-          <p className="eyebrow">Среднее курение</p>
-          <strong>{smoking.averageMin == null ? '—' : `${smoking.averageMin} мин`}</strong>
-          <span className="muted">{smoking.count} {plural(smoking.count, 'сессия', 'сессии', 'сессий')} по факту</span>
+      <div className="kpi-grid">
+        <article className="kpi">
+          <div className="value">
+            <Icon name="activity" />
+            <span>{value}</span>
+          </div>
+          <p>{caption}</p>
         </article>
-        <article className="stat">
-          <p className="eyebrow">Сейчас закончились</p>
-          <strong>{ended.length}</strong>
-          <span className="muted">в стоп-листе и заявке</span>
+        <article className="kpi">
+          <div className="value">
+            <Icon name="tag" />
+            <span>{ended.length}</span>
+          </div>
+          <p>
+            {ended.length === 1 ? 'Закончился вкус' : 'Закончились вкусы'}
+            <br />· в стоп-листе и в заявке
+          </p>
         </article>
       </div>
-      {smoking.byKind.length > 0 ? (
-        <ul className="kind-list">
-          {smoking.byKind.map((row) => (
-            <li key={row.kind}>
-              <span>{row.kind}</span>
-              <strong>{row.averageMin} мин</strong>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      <h4>Топ вкусов</h4>
-      {top.length === 0 ? <p className="muted">Пока не из чего считать: заявок не было.</p> : null}
-      <ol className="rank">
+      <div className="rank-block">
+        <h4>Топ вкусов</h4>
+        {top.length === 0 ? <p className="muted">Пока не из чего считать: заявок не было.</p> : null}
         {top.slice(0, 8).map((row) => (
-          <li key={`${row.brand}-${row.name}`}>
-            <span>
-              {row.name}
+          <div className="rank-row" key={`${row.brand}-${row.name}`}>
+            <div>
+              <strong>{row.name}</strong>
               <small>{row.brand}</small>
-            </span>
+            </div>
             <strong>{row.count}</strong>
-          </li>
+          </div>
         ))}
-      </ol>
-      <h4>Бренды</h4>
-      {brands.length === 0 ? <p className="muted">Разбивка появится после первой заявки.</p> : null}
-      <ul className="rank">
+      </div>
+      <div className="rank-block">
+        <h4>Бренды</h4>
+        {brands.length === 0 ? <p className="muted">Разбивка появится после первой заявки.</p> : null}
         {brands.map((row) => (
-          <li key={row.brand}>
-            <span>{row.brand}</span>
+          <div className="rank-row" key={row.brand}>
+            <div>
+              <strong>{row.brand}</strong>
+              <em>
+                {row.count} {plural(row.count, 'вкус', 'вкуса', 'вкусов')} в заявках
+              </em>
+            </div>
             <strong>{row.count}</strong>
-          </li>
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
   )
 }

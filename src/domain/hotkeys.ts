@@ -22,21 +22,16 @@ export interface HotkeyInput {
   target: unknown
 }
 
-export type HotkeyAction = 'ack' | 'excel' | 'copy' | 'close' | 'prev' | 'next'
+export type HotkeyAction = 'ack' | 'prev' | 'next'
 
-/** Пробел и Ctrl+C не перехватываются в полях ввода. */
+/** Пробел гасит самый ранний алерт, стрелки переключают разделы. В поле ввода оба молчат. */
 export function hotkeyAction(event: HotkeyInput): HotkeyAction | null {
-  const typing = isTextEntry(event.target)
-  if (event.key === 'Escape') return 'close'
-  if (event.key === 'ArrowLeft' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) return 'prev'
-  if (event.key === 'ArrowRight' && !typing && !event.ctrlKey && !event.metaKey && !event.altKey) return 'next'
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') return 'excel'
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'c') {
-    if (typing) return null
-    return 'copy'
-  }
-  if (event.key === ' ' && !event.ctrlKey && !event.metaKey && !event.altKey) {
-    if (typing || isButtonTarget(event.target)) return null
+  if (isTextEntry(event.target)) return null
+  if (event.ctrlKey || event.metaKey || event.altKey) return null
+  if (event.key === 'ArrowLeft') return 'prev'
+  if (event.key === 'ArrowRight') return 'next'
+  if (event.key === ' ') {
+    if (isButtonTarget(event.target)) return null
     return 'ack'
   }
   return null

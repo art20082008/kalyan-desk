@@ -4,15 +4,21 @@ import { hotkeyAction } from './hotkeys'
 import { markReminded, reminderDue } from './reminders'
 import { addFlavor, forwardFlavor, moveFlavor, recordRequest, undoMove } from './shelf'
 import { orderText } from './text'
+import { acceptAlertCount } from './alertPresets'
 import {
   acknowledgeEarliest,
+  alertsCleared,
   applyTimerTick,
   createHookah,
   earliestOpenAlert,
   finishHookah,
+  isAlertDue,
+  overtimeMs,
   reactionMs,
+  timerFace,
   timerSnapshot,
 } from './timers'
+import { parseAppData } from '../data/defaults'
 import { createDefaultData } from '../data/defaults'
 import type { Flavor, HookahAlert, OrderRequest, Settings } from '../types'
 
@@ -74,7 +80,7 @@ describe('таймеры', () => {
     expect(next.find((item) => item.id === 'later')?.alerts[0].ackedAt).toBeNull()
   })
 
-  it('по факту записывает досрочное завершение и ограничивает просрочку планом', () => {
+  it('по факту записывает досрочное завершение и не закрывает кальян сам после плана', () => {
     const hookah = hookahAt(0, [], now)
     const early = finishHookah(hookah, now + (5 + 25) * 60_000)
     expect(early.session?.actualMin).toBe(25)
@@ -82,8 +88,53 @@ describe('таймеры', () => {
       { ...createDefaultData(now), hookahs: [hookah] },
       now + (5 + 90) * 60_000,
     )
-    expect(overtime.data.sessions[0].actualMin).toBe(60)
-    expect(overtime.data.hookahs[0].finishedAt).not.toBeNull()
+    expect(overtime.data.sessions).toHaveLength(0)
+    expect(overtime.data.hookahs[0].finishedAt).toBeNull()
+    expect(overtime.data.hookahs[0].running).toBe(true)
+    expect(finishHookah(hookah, now + (5 + 90) * 60_000).session?.actualMin).toBe(90)
+  })
+
+  it('ведёт алерты по очереди и отсчитывает следующий интервал от подтверждения', () => {
+    const hookah = hookahAt(0, [10, 15, 25], now)
+    expect(hookah.alerts.map((alert) => alert.atMin)).toEqual([10, 15, 25])
+    const fireAt = now + (5 + 10) * 60_000
+    const stamped = applyTimerTick({ ...createDefaultData(now), hookahs: [hookah] }, fireAt)
+    const first = stamped.data.hookahs[0]
+    expect(first.alerts[0].firedAt).toBe(fireAt)
+    expect(first.alerts[1].firedAt).toBeNull()
+    expect(isAlertDue(first, first.alerts[1], fireAt + 30 * 60_000)).toBe(false)
+    expect(timerFace(first, fireAt)).toMatchObject({
+      visual: 'alert',
+      pulsing: true,
+      detail: 'Алерт 1 из 3 сработал',
+      tag: 'Алерт',
+    })
+    const ackedAt = fireAt + 2 * 60_000
+    const acked = acknowledgeEarliest(stamped.data.hookahs, ackedAt)
+    expect(acked[0].alerts[0].ackedSmokingMs).toBe(12 * 60_000)
+    expect(isAlertDue(acked[0], acked[0].alerts[1], ackedAt + 14 * 60_000)).toBe(false)
+    const due = ackedAt + 15 * 60_000
+    const second = applyTimerTick({ ...createDefaultData(now), hookahs: acked }, due)
+    expect(second.data.hookahs[0].alerts[1].firedAt).toBe(due)
+    expect(second.data.hookahs[0].alerts[2].firedAt).toBeNull()
+  })
+
+  it('после последнего алерта считает сверх плана от нажатия и оставляет кальян открытым', () => {
+    const hookah = hookahAt(0, [10], now)
+    const fireAt = now + (5 + 10) * 60_000
+    const stamped = applyTimerTick({ ...createDefaultData(now), hookahs: [hookah] }, fireAt)
+    const acked = acknowledgeEarliest(stamped.data.hookahs, fireAt)
+    expect(alertsCleared(acked[0])).toBe(true)
+    expect(overtimeMs(acked[0], fireAt + 5 * 60_000)).toBe(5 * 60_000)
+    expect(timerFace(acked[0], fireAt + 5 * 60_000)).toMatchObject({
+      visual: 'overtime',
+      clock: '+05:00',
+      tag: 'Сверх плана',
+      showContinue: true,
+    })
+    const later = applyTimerTick({ ...createDefaultData(now), hookahs: acked }, fireAt + 80 * 60_000)
+    expect(later.data.hookahs[0].finishedAt).toBeNull()
+    expect(later.data.sessions).toHaveLength(0)
   })
 })
 
@@ -171,13 +222,21 @@ describe('история и напоминания', () => {
       reminder: 'weekly',
       shiftEnd: '23:00',
       weekAnchorAt: 0,
-      lastWeeklyReminderAt: 0,
+      lastWeeklyReminderAt: null,
       lastShiftReminderOn: null,
+      organizationName: 'Малевич',
+      weekDay: 1,
+      weekTime: '10:00',
+      alertIntervals: [10, 10, 10],
     }
-    expect(reminderDue(weekly, flavors, 6 * 24 * 60 * 60 * 1000)).toBe(false)
-    expect(reminderDue(weekly, flavors, 8 * 24 * 60 * 60 * 1000)).toBe(true)
-    const marked = markReminded(weekly, 8 * 24 * 60 * 60 * 1000)
-    expect(reminderDue(marked, flavors, 8 * 24 * 60 * 60 * 1000 + 1000)).toBe(false)
+    const monday = new Date(2026, 9, 26, 10, 5).getTime()
+    const mondayEarly = new Date(2026, 9, 26, 9, 30).getTime()
+    const tuesday = new Date(2026, 9, 27, 12, 0).getTime()
+    expect(reminderDue(weekly, flavors, mondayEarly)).toBe(false)
+    expect(reminderDue(weekly, flavors, tuesday)).toBe(false)
+    expect(reminderDue(weekly, flavors, monday)).toBe(true)
+    const marked = markReminded(weekly, monday)
+    expect(reminderDue(marked, flavors, monday + 60_000)).toBe(false)
 
     const evening = new Date(2026, 9, 28, 23, 30).getTime()
     const shift: Settings = { ...weekly, reminder: 'shift', shiftEnd: '23:00', lastShiftReminderOn: null }
@@ -187,14 +246,61 @@ describe('история и напоминания', () => {
 })
 
 describe('клавиши и текст', () => {
-  it('не забирает пробел и Ctrl+C из поля ввода', () => {
+  it('оставляет пробел и стрелки только вне поля ввода', () => {
     const input = { tagName: 'INPUT' }
+    const plain = { tagName: 'DIV' }
     expect(hotkeyAction({ key: ' ', ctrlKey: false, metaKey: false, altKey: false, target: input })).toBeNull()
-    expect(hotkeyAction({ key: 'c', ctrlKey: true, metaKey: false, altKey: false, target: input })).toBeNull()
-    expect(hotkeyAction({ key: 's', ctrlKey: true, metaKey: false, altKey: false, target: input })).toBe('excel')
-    expect(hotkeyAction({ key: ' ', ctrlKey: false, metaKey: false, altKey: false, target: { tagName: 'DIV' } })).toBe('ack')
-    expect(hotkeyAction({ key: 'Escape', ctrlKey: false, metaKey: false, altKey: false, target: input })).toBe('close')
-    expect(hotkeyAction({ key: 'ArrowRight', ctrlKey: false, metaKey: false, altKey: false, target: { tagName: 'BODY' } })).toBe('next')
+    expect(hotkeyAction({ key: 'ArrowLeft', ctrlKey: false, metaKey: false, altKey: false, target: input })).toBeNull()
+    expect(hotkeyAction({ key: 'ArrowRight', ctrlKey: false, metaKey: false, altKey: false, target: input })).toBeNull()
+    expect(hotkeyAction({ key: ' ', ctrlKey: false, metaKey: false, altKey: false, target: plain })).toBe('ack')
+    expect(hotkeyAction({ key: 'ArrowRight', ctrlKey: false, metaKey: false, altKey: false, target: plain })).toBe('next')
+    expect(hotkeyAction({ key: 'ArrowLeft', ctrlKey: false, metaKey: false, altKey: false, target: plain })).toBe('prev')
+    expect(hotkeyAction({ key: 'Escape', ctrlKey: false, metaKey: false, altKey: false, target: plain })).toBeNull()
+    expect(hotkeyAction({ key: 's', ctrlKey: true, metaKey: false, altKey: false, target: plain })).toBeNull()
+    expect(hotkeyAction({ key: 'c', ctrlKey: true, metaKey: false, altKey: false, target: plain })).toBeNull()
+  })
+
+  it('не принимает число алертов вне диапазона 1–5 и дополняет старые данные', () => {
+    expect(acceptAlertCount('0')).toBeNull()
+    expect(acceptAlertCount('6')).toBeNull()
+    expect(acceptAlertCount('')).toBeNull()
+    expect(acceptAlertCount('3')).toBe(3)
+    const raw = createDefaultData(1)
+    raw.hookahs = [
+      createHookah(
+        {
+          table: 'VIP',
+          kind: 'Чаша',
+          durationMin: 60,
+          warmupMin: 0,
+          elapsedSmokingMin: 0,
+          alertMinutes: [10],
+          x: null,
+          y: null,
+          running: false,
+        },
+        1,
+      ),
+    ]
+    const stored = JSON.parse(JSON.stringify(raw)) as {
+      settings: Record<string, unknown>
+      tables?: unknown
+      hookahs: { alerts: Record<string, unknown>[] }[]
+    }
+    delete stored.settings.organizationName
+    delete stored.settings.alertIntervals
+    delete stored.settings.weekDay
+    delete stored.settings.weekTime
+    delete stored.tables
+    delete stored.hookahs[0].alerts[0].ackedSmokingMs
+    const parsed = parseAppData(stored, 1)
+    expect(parsed.settings.organizationName).toBe('Малевич')
+    expect(parsed.settings.alertIntervals).toEqual([10, 10, 10])
+    expect(parsed.settings.weekDay).toBe(1)
+    expect(parsed.settings.weekTime).toBe('10:00')
+    expect(parsed.tables.some((table) => table.label === 'VIP')).toBe(true)
+    expect(parsed.tables.some((table) => table.label === 'Стол 1')).toBe(true)
+    expect(parsed.hookahs[0].alerts[0].ackedSmokingMs).toBeNull()
   })
 
   it('собирает текст заявки по брендам', () => {

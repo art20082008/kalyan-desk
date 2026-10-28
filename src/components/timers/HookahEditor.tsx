@@ -3,20 +3,21 @@ import { HOOKAH_KINDS, type Hookah } from '../../types'
 import type { HookahDraft } from '../../domain/timers'
 import { timerSnapshot } from '../../domain/timers'
 import { useApp } from '../../store/context'
+import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
 import { AlertSettings } from './AlertSettings'
 
-function toDraft(hookah: Hookah | null, point: { x: number; y: number } | null, now: number): HookahDraft {
+function toDraft(hookah: Hookah | null, table: string | null, defaults: number[], now: number): HookahDraft {
   if (!hookah) {
     return {
-      table: 'Стол 1',
+      table: table || 'Стол 1',
       kind: 'Чаша',
       durationMin: 60,
       warmupMin: 5,
       elapsedSmokingMin: 0,
-      alertMinutes: [],
-      x: point?.x ?? null,
-      y: point?.y ?? null,
+      alertMinutes: defaults.length > 0 ? defaults : [10, 10, 10],
+      x: null,
+      y: null,
       running: true,
     }
   }
@@ -36,18 +37,20 @@ function toDraft(hookah: Hookah | null, point: { x: number; y: number } | null, 
 
 export function HookahEditor({
   hookah,
-  point,
+  table,
+  defaults,
   onClose,
   onSave,
 }: {
   hookah: Hookah | null
-  point: { x: number; y: number } | null
+  table: string | null
+  defaults: number[]
   onClose: () => void
   onSave: (draft: HookahDraft) => void
 }) {
   const { setDirty } = useApp()
-  const [initial] = useState(() => toDraft(hookah, point, Date.now()))
-  const [table, setTable] = useState(initial.table)
+  const [initial] = useState(() => toDraft(hookah, table, defaults, Date.now()))
+  const [tableName, setTableName] = useState(initial.table)
   const [kind, setKind] = useState(initial.kind)
   const [durationMin, setDurationMin] = useState(String(initial.durationMin))
   const [warmupMin, setWarmupMin] = useState(String(initial.warmupMin))
@@ -57,7 +60,7 @@ export function HookahEditor({
 
   useEffect(() => {
     const changed =
-      table !== initial.table ||
+      tableName !== initial.table ||
       kind !== initial.kind ||
       durationMin !== String(initial.durationMin) ||
       warmupMin !== String(initial.warmupMin) ||
@@ -66,18 +69,34 @@ export function HookahEditor({
       alerts.join(',') !== initial.alertMinutes.join(',')
     setDirty(changed)
     return () => setDirty(false)
-  }, [alerts, durationMin, elapsed, initial, kind, running, setDirty, table, warmupMin])
+  }, [alerts, durationMin, elapsed, initial, kind, running, setDirty, tableName, warmupMin])
 
   return (
-    <Modal title={hookah ? 'Редактирование кальяна' : 'Новый кальян'} onClose={onClose}>
+    <Modal
+      title={hookah ? 'Редактирование кальяна' : 'Новый кальян'}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Отмена</Button>
+          <Button
+            variant="primary"
+            type="submit"
+            form="hookah-form"
+          >
+            Сохранить
+          </Button>
+        </>
+      }
+    >
       <form
+        id="hookah-form"
         className="form"
         onSubmit={(event) => {
           event.preventDefault()
           const duration = Number(durationMin)
-          if (!table.trim() || !Number.isFinite(duration) || duration < 1) return
+          if (!tableName.trim() || !Number.isFinite(duration) || duration < 1) return
           onSave({
-            table,
+            table: tableName,
             kind,
             durationMin: duration,
             warmupMin: Number(warmupMin) || 0,
@@ -92,7 +111,7 @@ export function HookahEditor({
       >
         <label>
           Стол
-          <input className="field" value={table} onChange={(event) => setTable(event.target.value)} required />
+          <input className="field" value={tableName} onChange={(event) => setTableName(event.target.value)} required />
         </label>
         <label>
           Вид кальяна
@@ -122,15 +141,6 @@ export function HookahEditor({
           Таймер запущен
         </label>
         <AlertSettings minutes={alerts} onChange={setAlerts} />
-        {initial.x != null ? <p className="muted">Точка стоит на плане зала. На одном столе можно поставить несколько кальянов.</p> : null}
-        <div className="row end">
-          <button type="button" className="btn" onClick={onClose}>
-            Отмена
-          </button>
-          <button type="submit" className="btn primary">
-            Сохранить
-          </button>
-        </div>
       </form>
     </Modal>
   )

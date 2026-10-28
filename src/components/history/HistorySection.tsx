@@ -1,17 +1,17 @@
 import { useHistory } from '../../store/historyStore'
+import { useApp } from '../../store/context'
 import { Analytics } from './Analytics'
 import { RequestList } from './RequestList'
 
 export function HistorySection() {
   const history = useHistory()
+  const app = useApp()
   return (
-    <div className="section history-layout">
-      <div>
-        <div className="section-head">
-          <div>
-            <h2>История</h2>
-            <p className="muted">Заявки свёрнуты до даты и числа вкусов. Нажмите строку, чтобы раскрыть список.</p>
-          </div>
+    <div className="history-layout">
+      <div className="orders">
+        <div>
+          <h2 className="page-title">История заявок</h2>
+          <p className="page-lead">Заявки свёрнуты до даты и числа вкусов. Нажмите на строку, чтобы увидеть список.</p>
         </div>
         <RequestList requests={history.requests} />
       </div>
@@ -20,6 +20,8 @@ export function HistorySection() {
         brands={history.brands}
         ended={history.ended}
         smoking={history.smoking}
+        live={app.data.hookahs}
+        now={app.now}
         onExport={() => {
           void history.exportAnalytics()
         }}

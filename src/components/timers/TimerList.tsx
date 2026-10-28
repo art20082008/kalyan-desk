@@ -1,5 +1,6 @@
 import type { Hookah } from '../../types'
-import { openAlerts, timerSnapshot } from '../../domain/timers'
+import { earliestOpenAlert, openAlerts, timerSnapshot } from '../../domain/timers'
+import { Button } from '../ui/Button'
 import { TimerCard } from './TimerCard'
 
 export function TimerList({
@@ -26,13 +27,14 @@ export function TimerList({
       <div className="empty">
         <h3>Нет кальянов</h3>
         <p>Поставьте первый кальян на стол — таймер, вид чаши и алерты задаются отдельно.</p>
-        <button type="button" className="btn primary" onClick={onAdd}>
-          Добавить
-        </button>
+        <Button variant="primary" onClick={onAdd}>
+          Добавить кальян
+        </Button>
       </div>
     )
   }
 
+  const focusedId = earliestOpenAlert(hookahs, now)?.hookahId ?? null
   const ordered = [...hookahs].sort((a, b) => {
     const alertA = openAlerts(a, now).length > 0 ? 0 : 1
     const alertB = openAlerts(b, now).length > 0 ? 0 : 1
@@ -50,6 +52,7 @@ export function TimerList({
           key={hookah.id}
           hookah={hookah}
           now={now}
+          focused={focusedId === hookah.id}
           onEdit={() => onEdit(hookah)}
           onDelete={() => onDelete(hookah)}
           onToggle={() => onToggle(hookah.id)}
