@@ -6,6 +6,10 @@ const webOnly = process.env.VITE_WEB_ONLY === '1' || process.env.VITEST === 'tru
 
 export default defineConfig(({ command }) => ({
   base: command === 'serve' ? '/' : './',
+  build: {
+    outDir: 'dist-web',
+    emptyOutDir: true,
+  },
   server: {
     host: '127.0.0.1',
     port: 43127,

@@ -292,7 +292,7 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
   width: 100%;
 }
 .timer-card {
-  background: var(--bg-card);
+  background: var(--bg-timer-card);
   border: 1px solid var(--border-default);
   border-radius: var(--radius-lg);
   padding: var(--space-16);

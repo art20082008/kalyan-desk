@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, ipcMain, Notification } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Notification, shell } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { AppData } from '../src/types'
@@ -45,6 +45,7 @@ function createWindow(): void {
     minHeight: 640,
     backgroundColor: '#141414',
     title: 'Малевич',
+    icon: path.join(__dirname, '../build/icon.ico'),
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -65,7 +66,7 @@ function createWindow(): void {
 
   const devUrl = process.env.VITE_DEV_SERVER_URL
   if (devUrl) void win.loadURL(devUrl)
-  else void win.loadFile(path.join(__dirname, '../dist/index.html'))
+  else void win.loadFile(path.join(__dirname, '../dist-web/index.html'))
 }
 
 function pruneBackups(): void {
@@ -87,6 +88,10 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
+})
+
+app.on('before-quit', () => {
+  stopAlertLoop()
 })
 
 ipcMain.handle('db:load', () => {
@@ -177,6 +182,31 @@ ipcMain.handle('backup:restore', async () => {
     if (match) fs.writeFileSync(planFile(), Buffer.from(match[1], 'base64'))
   }
   return { data, planDataUrl: parsed.planDataUrl ?? readPlanDataUrl() }
+})
+
+let alertLoop: ReturnType<typeof setInterval> | null = null
+
+function stopAlertLoop(): void {
+  if (alertLoop == null) return
+  clearInterval(alertLoop)
+  alertLoop = null
+}
+
+ipcMain.on('alert:loop', (_event, active: boolean) => {
+  if (active) {
+    if (alertLoop != null) return
+    const ding = (): void => {
+      try {
+        shell.beep()
+      } catch {
+        /* на этой системе системный сигнал недоступен */
+      }
+    }
+    ding()
+    alertLoop = setInterval(ding, 1400)
+    return
+  }
+  stopAlertLoop()
 })
 
 ipcMain.handle('notify', (_event, payload: { title: string; body: string }) => {

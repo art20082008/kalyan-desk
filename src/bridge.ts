@@ -16,6 +16,7 @@ export interface MalewichBridge {
   backup: (data: AppData, planDataUrl: string | null) => Promise<string>
   restore: () => Promise<{ data: AppData; planDataUrl: string | null } | null>
   notify: (title: string, body: string) => Promise<void>
+  alertLoop: (active: boolean) => void
   onRequestClose: (cb: () => void) => () => void
   confirmClose: (allow: boolean) => void
 }

@@ -15,6 +15,9 @@ const api: MalewichBridge = {
     ipcRenderer.invoke('backup:create', { data, planDataUrl }),
   restore: (): Promise<{ data: AppData; planDataUrl: string | null } | null> => ipcRenderer.invoke('backup:restore'),
   notify: (title: string, body: string): Promise<void> => ipcRenderer.invoke('notify', { title, body }),
+  alertLoop: (active: boolean): void => {
+    ipcRenderer.send('alert:loop', active)
+  },
   onRequestClose: (cb: () => void): (() => void) => {
     const listener = (): void => cb()
     ipcRenderer.on('app:request-close', listener)

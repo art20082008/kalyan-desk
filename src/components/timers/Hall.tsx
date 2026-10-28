@@ -24,7 +24,6 @@ export function Hall({
           + Добавить стол
         </Button>
       </header>
-      <p className="muted">Клик по плану ставит кальян, метку можно перетащить</p>
       <div className="hall-grid">
         {tables.map((table) => {
           const seated = hookahs.filter((hookah) => hookah.table === table.label && hookah.finishedAt == null)
