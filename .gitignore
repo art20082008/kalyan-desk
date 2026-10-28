@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-electron
+release
+*.log
+.DS_Store
+*.local
+public/plans/*.jpg
+public/plans/*.jpeg
+!public/plans/.gitkeep
