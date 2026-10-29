@@ -12,7 +12,9 @@
     "dist:win": "vite build && electron-builder --win --x64 --publish never",
     "preview": "vite preview --host 127.0.0.1 --port 43127 --strictPort",
     "test": "vitest run",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
   },
   "dependencies": {
     "@fontsource/roboto": "^5.2.6",
@@ -30,7 +32,10 @@
     "typescript": "^5.8.3",
     "vite": "^6.3.4",
     "vite-plugin-electron": "^0.29.0",
-    "vitest": "^3.1.2"
+    "vitest": "^3.1.2",
+    "storybook": "^10.6.5",
+    "@storybook/react-vite": "^10.6.5",
+    "@storybook/addon-docs": "^10.6.5"
   },
   "build": {
     "appId": "ru.malevich.lounge",
