@@ -14,6 +14,7 @@ export function TimersSection() {
   const app = useApp()
   const [editor, setEditor] = useState<{ hookah: Hookah | null; table: string | null } | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Hookah | null>(null)
+  const [shiftOpen, setShiftOpen] = useState(false)
 
   function save(draft: HookahDraft) {
     if (editor?.hookah) timers.save(editor.hookah.id, draft)
@@ -26,11 +27,17 @@ export function TimersSection() {
         <div className="title-row">
           <div>
             <h2 className="page-title">Ведение кальянов</h2>
-            <p className="page-lead">У каждого стола свои таймер, вкус чаши и алерты. Пробел гасит самый ранний алерт.</p>
+            <p className="page-lead">
+              Ведение кальянов. У каждого кальяна свои таймер. Пробел запускает следующий таймер. Слева сверху показывается
+              самый ближайший кальян.
+            </p>
           </div>
-          <Button variant="primary" onClick={() => setEditor({ hookah: null, table: null })}>
-            Добавить кальян
-          </Button>
+          <div className="row">
+            <Button onClick={() => setShiftOpen(true)}>Завершить смену</Button>
+            <Button variant="primary" onClick={() => setEditor({ hookah: null, table: null })}>
+              Добавить кальян
+            </Button>
+          </div>
         </div>
         <TimerList
           hookahs={timers.hookahs}
@@ -51,16 +58,41 @@ export function TimersSection() {
         hookahs={timers.hookahs}
         now={timers.now}
         onAddTable={timers.addTable}
+        onRemoveTable={timers.removeTable}
         onPick={(label) => setEditor({ hookah: null, table: label })}
       />
       {editor ? (
         <HookahEditor
           hookah={editor.hookah}
           table={editor.table}
+          tables={app.data.tables}
           defaults={app.data.settings.alertIntervals}
           onClose={() => setEditor(null)}
           onSave={save}
         />
+      ) : null}
+      {shiftOpen ? (
+        <Modal
+          title="Завершить смену?"
+          onClose={() => setShiftOpen(false)}
+          narrow
+          footer={
+            <>
+              <Button onClick={() => setShiftOpen(false)}>Оставить</Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  timers.closeShift()
+                  setShiftOpen(false)
+                }}
+              >
+                Завершить смену
+              </Button>
+            </>
+          }
+        >
+          <p>Запишутся количество кальянов за смену, среднее время курения и дата. Все таймеры закроются.</p>
+        </Modal>
       ) : null}
       {pendingDelete ? (
         <Modal

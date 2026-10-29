@@ -18,6 +18,7 @@ export function useHistory() {
     brands: brandBreakdown(requests),
     ended: currentEnded(flavors),
     smoking: smokingAverage(sessions),
+    shifts: app.data.shifts ?? [],
     setReminder(reminder: 'weekly' | 'shift', shiftEnd: string) {
       app.update((data) => ({
         ...data,

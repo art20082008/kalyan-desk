@@ -1,20 +1,22 @@
 export function AlertSettings({
   minutes,
+  seconds,
   onChange,
 }: {
   minutes: string[]
-  onChange: (minutes: string[]) => void
+  seconds: string[]
+  onChange: (minutes: string[], seconds: string[]) => void
 }) {
   return (
     <fieldset className="alerts">
-      <legend>Алерты</legend>
-      <p className="muted">Интервалы по очереди. Следующий отсчитывается от нажатия «Продолжить», а не от срабатывания.</p>
-      {minutes.length === 0 ? <p className="muted">Пока нет предупреждений.</p> : null}
+      <legend>Таймеры</legend>
+      <p className="muted">Интервалы по очереди, с секундами. Следующий отсчитывается от пробела или «Продолжить».</p>
+      {minutes.length === 0 ? <p className="muted">Пока нет таймеров.</p> : null}
       <ul className="alert-list">
         {minutes.map((minute, index) => (
           <li key={index}>
             <label>
-              Минута
+              Мин
               <input
                 className="field"
                 inputMode="numeric"
@@ -22,14 +24,32 @@ export function AlertSettings({
                 onChange={(event) => {
                   const next = [...minutes]
                   next[index] = event.target.value
-                  onChange(next)
+                  onChange(next, seconds)
+                }}
+              />
+            </label>
+            <label>
+              Сек
+              <input
+                className="field"
+                inputMode="numeric"
+                value={seconds[index] ?? '0'}
+                onChange={(event) => {
+                  const next = [...seconds]
+                  next[index] = event.target.value
+                  onChange(minutes, next)
                 }}
               />
             </label>
             <button
               type="button"
               className="btn ghost"
-              onClick={() => onChange(minutes.filter((_, item) => item !== index))}
+              onClick={() => {
+                onChange(
+                  minutes.filter((_, item) => item !== index),
+                  seconds.filter((_, item) => item !== index),
+                )
+              }}
             >
               Убрать
             </button>
@@ -39,9 +59,9 @@ export function AlertSettings({
       <button
         type="button"
         className="btn"
-        onClick={() => onChange([...minutes, minutes.length === 0 ? '25' : ''])}
+        onClick={() => onChange([...minutes, minutes.length === 0 ? '10' : ''], [...seconds, '0'])}
       >
-        Добавить алерт
+        Добавить таймер
       </button>
     </fieldset>
   )

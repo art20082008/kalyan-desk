@@ -54,12 +54,17 @@ export function timerSnapshot(hookah: Hookah, now: number): TimerSnapshot {
   }
 }
 
+export function intervalMs(alert: Pick<HookahAlert, 'atMin' | 'atSec'>): number {
+  const seconds = Math.min(59, Math.max(0, Math.round(alert.atSec ?? 0)))
+  return Math.max(0, alert.atMin) * 60_000 + seconds * 1000
+}
+
 function anchorMs(hookah: Hookah, index: number): number {
   if (index <= 0) return 0
   const prev = hookah.alerts[index - 1]
   if (prev.ackedAt == null) return Number.POSITIVE_INFINITY
   if (prev.ackedSmokingMs != null) return prev.ackedSmokingMs
-  return hookah.alerts.slice(0, index).reduce((sum, alert) => sum + alert.atMin, 0) * 60_000
+  return hookah.alerts.slice(0, index).reduce((sum, alert) => sum + intervalMs(alert), 0)
 }
 
 export function isAlertDue(hookah: Hookah, alert: HookahAlert, now: number): boolean {
@@ -71,7 +76,7 @@ export function isAlertDue(hookah: Hookah, alert: HookahAlert, now: number): boo
   if (snap.phase === 'idle' || snap.phase === 'warmup') return false
   const anchor = anchorMs(hookah, index)
   if (!Number.isFinite(anchor)) return false
-  return snap.smokingMs + 1e-9 >= anchor + alert.atMin * 60_000
+  return snap.smokingMs + 1e-9 >= anchor + intervalMs(alert)
 }
 
 export function openAlerts(hookah: Hookah, now: number): HookahAlert[] {
@@ -108,7 +113,7 @@ export function nextSignalMs(hookah: Hookah, now: number): number | null {
     if (index > 0 && hookah.alerts[index - 1].ackedAt == null) return null
     const anchor = anchorMs(hookah, index)
     if (!Number.isFinite(anchor)) return null
-    const smokingLeft = Math.max(0, anchor + alert.atMin * 60_000 - snap.smokingMs)
+    const smokingLeft = Math.max(0, anchor + intervalMs(alert) - snap.smokingMs)
     const warmupLeft = snap.phase === 'warmup' ? snap.remainingMs : 0
     return warmupLeft + smokingLeft
   }
@@ -182,9 +187,9 @@ export function timerFace(hookah: Hookah, now: number): TimerFace {
       progress: snap.progress,
       barTone: 'citrus',
       plan: planFull,
-      detail: `Алерт ${alertIndex + 1} из ${hookah.alerts.length} сработал`,
+      detail: `Таймер ${alertIndex + 1} из ${hookah.alerts.length} сработал`,
       detailTone: 'citrus',
-      tag: 'Алерт',
+      tag: 'Таймер',
       tagTone: 'citrus',
       reaction,
       pulsing: true,
@@ -202,7 +207,7 @@ export function timerFace(hookah: Hookah, now: number): TimerFace {
       progress: 1,
       barTone: 'error',
       plan: `план ${hookah.durationMin} мин`,
-      detail: 'Все алерты пройдены · сверх плана',
+      detail: 'Все таймеры пройдены · сверх плана',
       detailTone: 'error',
       tag: 'Сверх плана',
       tagTone: 'brand',
@@ -353,7 +358,7 @@ export function recordSession(hookah: Hookah, now: number): { hookah: Hookah; se
     id: crypto.randomUUID(),
     hookahId: hookah.id,
     table: hookah.table,
-    kind: hookah.kind,
+    kind: hookah.flavorName || hookah.kind,
     startedAt: hookah.createdAt,
     finishedAt: now,
     plannedMin: hookah.durationMin,
@@ -398,11 +403,13 @@ export function acknowledgeEarliest(hookahs: Hookah[], now: number): Hookah[] {
 
 export interface HookahDraft {
   table: string
+  flavorName?: string
   kind: string
   durationMin: number
   warmupMin: number
   elapsedSmokingMin: number
   alertMinutes: number[]
+  alertSeconds?: number[]
   x: number | null
   y: number | null
   running: boolean
@@ -420,9 +427,10 @@ export function createHookah(draft: HookahDraft, now: number): Hookah {
   const hookah: Hookah = {
     id: crypto.randomUUID(),
     table: draft.table.trim() || 'Стол',
-    kind: draft.kind.trim() || 'Чаша',
+    flavorName: (draft.flavorName ?? '').trim(),
+    kind: draft.kind.trim(),
     durationMin: Math.max(1, Math.round(draft.durationMin)),
-    warmupMin: Math.max(0, Math.round(draft.warmupMin)),
+    warmupMin: 0,
     running: draft.running,
     elapsedBeforeMs: draft.running ? 0 : elapsedMs,
     startedAt: draft.running ? now - elapsedMs : null,
@@ -433,7 +441,7 @@ export function createHookah(draft: HookahDraft, now: number): Hookah {
     recordedSessionId: null,
     createdAt: now,
   }
-  hookah.alerts = reconcileAlerts([], draft.alertMinutes, timerSnapshot(hookah, now).smokingMs / 60_000, now)
+  hookah.alerts = reconcileAlerts([], draft.alertMinutes, timerSnapshot(hookah, now).smokingMs / 60_000, now, draft.alertSeconds)
   return hookah
 }
 
@@ -442,20 +450,28 @@ export function reconcileAlerts(
   minutes: number[],
   smokingMin: number,
   now: number,
+  seconds: number[] = [],
 ): HookahAlert[] {
-  const intervals = minutes.map((minute) => Math.round(minute)).filter((minute) => minute > 0)
+  const intervals = minutes
+    .map((minute, index) => ({
+      atMin: Math.round(minute),
+      atSec: Math.min(59, Math.max(0, Math.round(seconds[index] ?? 0))),
+    }))
+    .filter((item) => item.atMin > 0 || item.atSec > 0)
   const result: HookahAlert[] = []
   for (let index = 0; index < intervals.length; index += 1) {
-    const atMin = intervals[index]
-    const carried = existing[index]?.atMin === atMin ? existing[index] : null
+    const atMin = intervals[index].atMin
+    const atSec = intervals[index].atSec
+    const carried = existing[index]?.atMin === atMin && (existing[index]?.atSec ?? 0) === atSec ? existing[index] : null
     const prev = index === 0 ? null : result[index - 1]
     const prevReady = index === 0 || prev?.ackedAt != null
-    const anchorMin = index === 0 ? 0 : (prev?.ackedSmokingMs ?? Number.POSITIVE_INFINITY) / 60_000
-    const due = prevReady && Number.isFinite(anchorMin) && smokingMin + 1e-6 >= anchorMin + atMin
+    const anchor = index === 0 ? 0 : (prev?.ackedSmokingMs ?? Number.POSITIVE_INFINITY)
+    const due = prevReady && Number.isFinite(anchor) && smokingMin * 60_000 + 1 >= anchor + atMin * 60_000 + atSec * 1000
     if (!due) {
       result.push({
         id: carried?.id ?? crypto.randomUUID(),
         atMin,
+        atSec,
         firedAt: null,
         ackedAt: null,
         ackedSmokingMs: null,
@@ -465,6 +481,7 @@ export function reconcileAlerts(
     result.push({
       id: carried?.id ?? crypto.randomUUID(),
       atMin,
+      atSec,
       firedAt: carried?.firedAt ?? now,
       ackedAt: carried?.ackedAt ?? null,
       ackedSmokingMs: carried?.ackedSmokingMs ?? null,
@@ -481,9 +498,10 @@ export function applyDraft(hookah: Hookah, draft: HookahDraft, now: number): Hoo
   return {
     ...hookah,
     table: draft.table.trim() || 'Стол',
-    kind: draft.kind.trim() || 'Чаша',
+    flavorName: (draft.flavorName ?? hookah.flavorName ?? '').trim(),
+    kind: draft.kind.trim(),
     durationMin,
-    warmupMin: Math.max(0, Math.round(draft.warmupMin)),
+    warmupMin: 0,
     running: done ? false : draft.running,
     elapsedBeforeMs: done || !draft.running ? elapsedMs : 0,
     startedAt: done || !draft.running ? null : now - elapsedMs,
@@ -491,8 +509,23 @@ export function applyDraft(hookah: Hookah, draft: HookahDraft, now: number): Hoo
     recordedSessionId: done ? hookah.recordedSessionId : null,
     x: draft.x,
     y: draft.y,
-    alerts: reconcileAlerts(hookah.alerts, draft.alertMinutes, smokingMin, now),
+    alerts: reconcileAlerts(hookah.alerts, draft.alertMinutes, smokingMin, now, draft.alertSeconds),
   }
+}
+
+/** Ближайший таймер слева сверху, дальше слева направо и сверху вниз. Завершённые в конце. */
+export function sortHookahs(hookahs: Hookah[], now: number): Hookah[] {
+  return [...hookahs].sort((a, b) => {
+    const aDone = a.finishedAt != null ? 1 : 0
+    const bDone = b.finishedAt != null ? 1 : 0
+    if (aDone !== bDone) return aDone - bDone
+    const aNext = nextSignalMs(a, now)
+    const bNext = nextSignalMs(b, now)
+    const aKey = aNext == null ? Number.POSITIVE_INFINITY : aNext
+    const bKey = bNext == null ? Number.POSITIVE_INFINITY : bNext
+    if (aKey !== bKey) return aKey - bKey
+    return a.createdAt - b.createdAt
+  })
 }
 
 export function toggleRunning(hookah: Hookah, now: number): Hookah {

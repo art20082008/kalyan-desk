@@ -1,5 +1,6 @@
 import type { Flavor, FlavorStatus } from '../../types'
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 
 export function FlavorCard({
   flavor,
@@ -11,15 +12,20 @@ export function FlavorCard({
   onRemove?: (id: string) => void
 }) {
   return (
-    <article
-      className="shelf-card"
-      draggable
-      data-noswipe
-      onDragStart={(event) => {
-        event.dataTransfer.setData('text/plain', flavor.id)
-        event.dataTransfer.effectAllowed = 'move'
-      }}
-    >
+    <article className="shelf-card" data-noswipe>
+      <button
+        type="button"
+        className="drag-handle"
+        draggable
+        aria-label="Перетащить"
+        data-noswipe
+        onDragStart={(event) => {
+          event.dataTransfer.setData('text/plain', flavor.id)
+          event.dataTransfer.effectAllowed = 'move'
+        }}
+      >
+        <Icon name="grip" />
+      </button>
       <div className="text">
         <strong>{flavor.name}</strong>
         <em>{flavor.brand}</em>
@@ -36,9 +42,9 @@ export function FlavorCard({
           </Button>
         ) : null}
         {onRemove ? (
-          <Button variant="small" onClick={() => onRemove(flavor.id)}>
-            Удалить
-          </Button>
+          <button type="button" className="icon-btn compact danger" aria-label="Удалить" onClick={() => onRemove(flavor.id)}>
+            <Icon name="trash" />
+          </button>
         ) : null}
       </div>
     </article>

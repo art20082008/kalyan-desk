@@ -1,4 +1,4 @@
-type IconName = 'pause' | 'play' | 'trash' | 'pencil' | 'x' | 'search' | 'chevron' | 'check' | 'activity' | 'tag'
+type IconName = 'pause' | 'play' | 'trash' | 'pencil' | 'x' | 'search' | 'chevron' | 'check' | 'activity' | 'tag' | 'grip'
 
 export function Icon({ name }: { name: IconName }) {
   const common = {
@@ -74,6 +74,18 @@ export function Icon({ name }: { name: IconName }) {
       <svg {...common}>
         <circle cx="12" cy="12" r="9" />
         <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+      </svg>
+    )
+  }
+  if (name === 'grip') {
+    return (
+      <svg {...common}>
+        <circle cx="9" cy="7" r="1" fill="currentColor" stroke="none" />
+        <circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="9" cy="17" r="1" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="7" r="1" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" />
+        <circle cx="15" cy="17" r="1" fill="currentColor" stroke="none" />
       </svg>
     )
   }

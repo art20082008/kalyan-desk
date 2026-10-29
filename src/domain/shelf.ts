@@ -11,6 +11,11 @@ export function endedFlavors(flavors: Flavor[]): Flavor[] {
   return flavors.filter((flavor) => flavor.status === 'stop' || flavor.status === 'request')
 }
 
+/** Текст заявки: вкусы из «закончились» и те, что уже перенесены в заявку. */
+export function orderFlavors(flavors: Flavor[]): Flavor[] {
+  return endedFlavors(flavors)
+}
+
 export function moveFlavor(
   flavors: Flavor[],
   id: string,
@@ -69,9 +74,7 @@ export function removeFlavor(flavors: Flavor[], id: string): Flavor[] {
 }
 
 export function recordRequest(data: AppData, now: number): { data: AppData; created: boolean } {
-  const lines = data.flavors
-    .filter((flavor) => flavor.status === 'request')
-    .map((flavor) => ({ id: flavor.id, brand: flavor.brand, name: flavor.name }))
+  const lines = orderFlavors(data.flavors).map((flavor) => ({ id: flavor.id, brand: flavor.brand, name: flavor.name }))
   if (lines.length === 0) return { data, created: false }
   const signature = lines.map((line) => line.id).join('|')
   const latest = data.requests[0]

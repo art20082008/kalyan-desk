@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { SectionId } from './types'
-import { hotkeyAction } from './domain/hotkeys'
+import { hotkeyAction, shouldChangeSection } from './domain/hotkeys'
 import { useApp } from './store/context'
 import { useTimers } from './store/timersStore'
 import { HistorySection } from './components/history/HistorySection'
@@ -25,7 +25,7 @@ export function App() {
   const toastRef = useRef(app.showToast)
   timersRef.current = timers
   toastRef.current = app.showToast
-  const swipe = useRef<{ x: number; y: number; blocked: boolean } | null>(null)
+  const swipe = useRef<{ x: number; y: number; at: number; pointerType: string; blocked: boolean } | null>(null)
   const name = app.data.settings.organizationName.trim() || 'Малевич'
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export function App() {
       if (action === 'next') setSection((value) => (value + 1) % SECTIONS.length)
       if (action === 'ack') {
         const done = timersRef.current.acknowledgeEarliest()
-        if (!done) toastRef.current('Нет алертов, которые ждут реакции')
+        if (!done) toastRef.current('Нет таймера, который пора проверить')
       }
     }
     window.addEventListener('keydown', onKey)
@@ -101,16 +101,29 @@ export function App() {
           swipe.current = {
             x: event.clientX,
             y: event.clientY,
+            at: Date.now(),
+            pointerType: event.pointerType,
             blocked: Boolean(target.closest('input, textarea, select, [data-noswipe]')),
           }
         }}
         onPointerUp={(event) => {
           const start = swipe.current
           swipe.current = null
-          if (!start || start.blocked) return
+          if (!start) return
           const dx = event.clientX - start.x
-          const dy = event.clientY - start.y
-          if (Math.abs(dx) < 80 || Math.abs(dx) < Math.abs(dy) * 1.4) return
+          const selection = window.getSelection()
+          if (
+            !shouldChangeSection({
+              pointerType: start.pointerType,
+              blocked: start.blocked,
+              dx,
+              dy: event.clientY - start.y,
+              elapsedMs: Date.now() - start.at,
+              hasSelection: Boolean(selection && !selection.isCollapsed && String(selection).trim()),
+            })
+          ) {
+            return
+          }
           setSection((value) => {
             const next = value + (dx < 0 ? 1 : -1)
             return Math.min(SECTIONS.length - 1, Math.max(0, next))

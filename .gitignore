@@ -9,3 +9,6 @@ release
 public/plans/*.jpg
 public/plans/*.jpeg
 !public/plans/.gitkeep
+
+*storybook.log
+storybook-static

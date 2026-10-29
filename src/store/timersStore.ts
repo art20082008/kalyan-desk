@@ -1,4 +1,6 @@
-import { setAlertLoop } from '../feedback/alertSound'
+import { stopAlertSound } from '../feedback/alertSound'
+import { closeShift } from '../domain/shift'
+import { removeLastTable } from '../domain/tables'
 import type { HookahDraft } from '../domain/timers'
 import {
   acknowledgeAlert,
@@ -7,7 +9,6 @@ import {
   createHookah,
   earliestOpenAlert,
   finishHookah,
-  openAlerts,
   stampDueAlerts,
   toggleRunning,
 } from '../domain/timers'
@@ -24,7 +25,6 @@ export function useTimers() {
     add(draft: HookahDraft) {
       const now = Date.now()
       const hookah = createHookah(draft, now)
-      if (hookah.alerts.some((alert) => alert.firedAt && !alert.ackedAt)) setAlertLoop(true)
       app.update((data) => ({ ...data, hookahs: [...data.hookahs, hookah] }))
     },
     addTable() {
@@ -39,6 +39,20 @@ export function useTimers() {
           tables: [...data.tables, { id: crypto.randomUUID(), label: `Стол ${next}` }],
         }
       })
+    },
+    removeTable() {
+      app.update((data) => ({ ...data, tables: removeLastTable(data.tables) }))
+    },
+    closeShift() {
+      const now = Date.now()
+      let count = 0
+      app.update((data) => {
+        const closed = closeShift(data, now)
+        count = closed.shift.hookahCount
+        return closed.data
+      })
+      stopAlertSound()
+      app.showToast(count === 0 ? 'Смена закрыта, кальянов не было' : `Смена записана: ${count}`)
     },
     save(id: string, draft: HookahDraft) {
       const now = Date.now()
@@ -79,7 +93,6 @@ export function useTimers() {
           const alertId = earliestOpenAlert([stamped], now)?.alertId
           return alertId ? acknowledgeAlert(stamped, alertId, now) : hookah
         })
-        setAlertLoop(hookahs.some((hookah) => openAlerts(hookah, now).length > 0))
         return { ...data, hookahs }
       })
     },
@@ -88,7 +101,6 @@ export function useTimers() {
       if (!earliestOpenAlert(app.data.hookahs, now)) return false
       app.update((data) => {
         const hookahs = acknowledgeEarliest(data.hookahs, now)
-        setAlertLoop(hookahs.some((hookah) => openAlerts(hookah, now).length > 0))
         return hookahs === data.hookahs ? data : { ...data, hookahs }
       })
       return true

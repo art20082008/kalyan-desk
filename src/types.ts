@@ -19,6 +19,8 @@ export interface HookahAlert {
   id: string
   /** Длина интервала в минутах. Следующий отсчёт начинается с подтверждения предыдущего. */
   atMin: number
+  /** Дополнительные секунды интервала, 0–59. */
+  atSec?: number
   firedAt: number | null
   ackedAt: number | null
   /** Сколько уже шло курение (мс) в момент подтверждения. От этой точки считается следующий интервал. */
@@ -28,6 +30,8 @@ export interface HookahAlert {
 export interface Hookah {
   id: string
   table: string
+  /** Вкус чаши. Пустая строка, если его не вписали. */
+  flavorName: string
   kind: string
   durationMin: number
   warmupMin: number
@@ -95,8 +99,19 @@ export interface Settings {
   weekDay: number
   /** Локальное время еженедельного напоминания, «ЧЧ:ММ». */
   weekTime: string
-  /** Интервалы алертов нового кальяна, от 1 до 5 значений в минутах. */
+  /** Интервалы таймеров нового кальяна, от 1 до 5 значений в минутах. */
   alertIntervals: number[]
+  /** Один системный сигнал, когда таймер срабатывает. */
+  timerSound: boolean
+}
+
+export interface ShiftSummary {
+  id: string
+  endedAt: number
+  /** Календарный день смены, ГГГГ-ММ-ДД. */
+  dateKey: string
+  hookahCount: number
+  averageMin: number | null
 }
 
 export interface HallTable {
@@ -119,6 +134,7 @@ export interface AppData {
   plan: PlanMeta | null
   /** Столы схемы зала. Старый JPEG плана не удаляется, но в интерфейсе не используется. */
   tables: HallTable[]
+  shifts: ShiftSummary[]
 }
 
 export interface UndoMove {
